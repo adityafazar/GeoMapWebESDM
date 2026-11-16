@@ -6,14 +6,12 @@ interface CatalogHeaderProps {
   totalDatasets: number;
   catViewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
-  onTriggerEmptyStateTest: () => void;
 }
 
 export const CatalogHeader: React.FC<CatalogHeaderProps> = ({
   totalDatasets,
   catViewMode,
   onChangeViewMode,
-  onTriggerEmptyStateTest,
 }) => {
   return (
     /* Prototipe v3 Catalog Header Bar */
@@ -36,19 +34,6 @@ export const CatalogHeader: React.FC<CatalogHeaderProps> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">
-        <button
-          type="button"
-          onClick={onTriggerEmptyStateTest}
-          className="gm-focus gm-press inline-flex h-9 items-center rounded-xl border px-3.5 text-xs font-semibold cursor-pointer whitespace-nowrap"
-          style={{
-            borderColor: 'var(--s-border-strong)',
-            backgroundColor: 'var(--s-bg-surface)',
-            color: 'var(--s-text-secondary)',
-          }}
-        >
-          Uji Mitigasi Hasil Kosong
-        </button>
-
         <div
           role="group"
           aria-label="Mode tampilan daftar katalog"

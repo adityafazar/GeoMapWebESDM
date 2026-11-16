@@ -11,6 +11,8 @@ import {
   DATASETS,
   HIGHLIGHT_MAP_SCALES,
   MAP_LAYERS,
+  REGIONAL_INDEX_OPTIONS,
+  REGIONAL_REGION_OPTIONS,
   type ActiveFaultFeature,
   type BasemapId,
   type GeoDataset,
@@ -19,12 +21,19 @@ import {
   type MapScaleFilter,
   type MapScaleValue,
   type QuadrangleFeature,
+  type RegionalIndexFilter,
+  type RegionalIndexMode,
+  type RegionalIndexRegion,
   type ThemeCluster,
   type VolcanoItem,
 } from '../data/geomapData';
-import { resolveMonotonicZoomScale } from '../utils/indonesiaNlpGrid';
+import {
+  matchesRegionalRegion,
+  resolveMonotonicZoomScale,
+} from '../utils/indonesiaNlpGrid';
 
 export type RouteName = 'map' | 'catalog' | 'preview' | 'faq';
+export type MapDimensionMode = '2d' | '3d';
 export type BasemapType = BasemapId;
 export type SheetDetent = 'minimal' | 'ringkas' | 'penuh';
 export type RegionFilter =
@@ -130,10 +139,14 @@ function buildSearchHistoryItem(input: SearchHistoryInput): SearchHistoryItem {
   if (input.kind === 'quadrangle') {
     const { quad } = input;
     return {
-      id: `quadrangle:${quad.code}`,
+      id: quad.isRegionalIndex
+        ? `quadrangle:reg:${quad.code}`
+        : `quadrangle:${quad.code}`,
       kind: 'quadrangle',
       label: `${quad.code} · ${quad.name}`,
-      subtitle: `Indeks Lembar • ${quad.scale} • ${quad.region}`,
+      subtitle: quad.isRegionalIndex
+        ? `Indeks Regional • ${quad.scale} • ${quad.region}`
+        : `Indeks Lembar • ${quad.scale} • ${quad.region}`,
       query: input.query?.trim() || `${quad.code} ${quad.name}`,
       timestamp,
       quad,
@@ -204,6 +217,7 @@ export interface NlpGridTelemetry {
   requestedScale: MapScaleValue;
   renderedScale: MapScaleValue;
   isParentFallback: boolean;
+  isRegional?: boolean;
   visibleCount: number;
   visibleCells: QuadrangleFeature[];
 }
@@ -272,6 +286,13 @@ interface GeoMapContextValue {
 
   mapScaleFilter: MapScaleFilter;
   selectMapScaleFilter: (scale: MapScaleFilter) => void;
+  regionalIndexFilter: RegionalIndexFilter;
+  regionalRegionFilter: RegionalIndexRegion;
+  selectRegionalIndexFilter: (
+    mode: RegionalIndexFilter,
+    region?: RegionalIndexRegion,
+  ) => void;
+  selectRegionalRegionFilter: (region: RegionalIndexRegion) => void;
   syncScaleFromZoom: (nextZoom: number, prevZoom: number) => void;
 
   mapFormatFilter: LandingMapDataFormat;
@@ -306,6 +327,11 @@ interface GeoMapContextValue {
     zoom: number;
     scaleLabel: string;
   }) => void;
+
+  mapDimension: MapDimensionMode;
+  setMapDimension: (mode: MapDimensionMode) => void;
+  mapPitchDeg: number;
+  setMapPitchDeg: (deg: number) => void;
 
   nlpGridStats: NlpGridTelemetry | null;
   setNlpGridStats: (next: NlpGridTelemetry | null) => void;
@@ -373,6 +399,17 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
   const [darkMode, setDarkMode] = useState(false);
   const [basemap, setBasemapState] = useState<BasemapType>('sat');
   const [isInstantKeyMode, setIsInstantKeyMode] = useState(false);
+  const [mapDimension, setMapDimensionState] = useState<MapDimensionMode>('2d');
+  const [mapPitchDeg, setMapPitchDegState] = useState<number>(60);
+
+  const setMapDimension = useCallback((mode: MapDimensionMode) => {
+    setMapDimensionState(mode);
+  }, []);
+
+  const setMapPitchDeg = useCallback((deg: number) => {
+    const clamped = Math.max(25, Math.min(75, Math.round(deg)));
+    setMapPitchDegState(clamped);
+  }, []);
 
   const [mapLayers, setMapLayers] = useState<Record<LayerKey, boolean>>(
     buildInitialLayers,
@@ -423,6 +460,7 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
         prev.requestedScale === next.requestedScale &&
         prev.renderedScale === next.renderedScale &&
         prev.isParentFallback === next.isParentFallback &&
+        Boolean(prev.isRegional) === Boolean(next.isRegional) &&
         prev.visibleCount === next.visibleCount &&
         prev.visibleCells.length === next.visibleCells.length &&
         prev.visibleCells.every((c, i) => c.code === next.visibleCells[i]?.code)
@@ -440,11 +478,21 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
   const mapPopupDockedRef = useRef<boolean>(mapPopupDocked);
   mapPopupDockedRef.current = mapPopupDocked;
   const [mapScaleFilter, setMapScaleFilter] = useState<MapScaleFilter>(null);
+  const [regionalIndexFilter, setRegionalIndexFilter] =
+    useState<RegionalIndexFilter>(null);
+  const [regionalRegionFilter, setRegionalRegionFilter] =
+    useState<RegionalIndexRegion>('Semua');
   const lastScaleRef = useRef<MapScaleValue>('1:250.000');
+  const lastRegionalModeRef = useRef<RegionalIndexMode>('all');
+  const lastIndexKindRef = useRef<'scale' | 'regional'>('scale');
   const mapLayersGridRef = useRef<boolean>(mapLayers.grid);
   mapLayersGridRef.current = mapLayers.grid;
   const mapScaleFilterRef = useRef<MapScaleFilter>(mapScaleFilter);
   mapScaleFilterRef.current = mapScaleFilter;
+  const regionalIndexFilterRef = useRef<RegionalIndexFilter>(regionalIndexFilter);
+  regionalIndexFilterRef.current = regionalIndexFilter;
+  const regionalRegionFilterRef = useRef<RegionalIndexRegion>(regionalRegionFilter);
+  regionalRegionFilterRef.current = regionalRegionFilter;
   const [layerPanelOpen, setLayerPanelOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -656,16 +704,29 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const toggleLayer = useCallback(
     (key: LayerKey, forceState?: boolean) => {
+      if (key === 'grid') {
+        const nextVal =
+          forceState !== undefined ? forceState : !mapLayersGridRef.current;
+        if (nextVal) {
+          if (lastIndexKindRef.current === 'regional') {
+            setMapScaleFilter(null);
+            setRegionalIndexFilter((curr) => curr ?? lastRegionalModeRef.current);
+          } else {
+            setRegionalIndexFilter(null);
+            setMapScaleFilter((curr) => curr ?? lastScaleRef.current);
+          }
+        } else {
+          setMapScaleFilter(null);
+          setRegionalIndexFilter(null);
+          setRegionalRegionFilter('Semua');
+          clearQuadranglePopup();
+        }
+        setMapLayers((prev) => ({ ...prev, grid: nextVal }));
+        return;
+      }
+
       setMapLayers((prev) => {
         const nextVal = forceState !== undefined ? forceState : !prev[key];
-        if (key === 'grid') {
-          if (nextVal) {
-            setMapScaleFilter((curr) => curr ?? lastScaleRef.current);
-          } else {
-            setMapScaleFilter(null);
-            clearQuadranglePopup();
-          }
-        }
         return { ...prev, [key]: nextVal };
       });
     },
@@ -695,12 +756,17 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
       setMapScaleFilter(resolved);
 
       if (resolved === null) {
+        setRegionalIndexFilter(null);
+        setRegionalRegionFilter('Semua');
         setMapLayers((prev) => ({ ...prev, grid: false }));
         clearQuadranglePopup();
         return;
       }
 
+      lastIndexKindRef.current = 'scale';
       lastScaleRef.current = resolved;
+      setRegionalIndexFilter(null);
+      setRegionalRegionFilter('Semua');
       const meta = HIGHLIGHT_MAP_SCALES.find((m) => m.value === resolved);
       const activeCenteredQuad =
         !mapPopupDockedRef.current && mapPopupRef.current?.kind === 'quadrangle'
@@ -723,8 +789,79 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
     [clearQuadranglePopup, mapScaleFilter],
   );
 
+  const selectRegionalIndexFilter = useCallback(
+    (mode: RegionalIndexFilter, explicitRegion?: RegionalIndexRegion) => {
+      if (mode === null) {
+        setRegionalIndexFilter(null);
+        setRegionalRegionFilter('Semua');
+        setMapScaleFilter(null);
+        setMapLayers((prev) => ({ ...prev, grid: false }));
+        clearQuadranglePopup();
+        return;
+      }
+
+      const isSameToggleOff =
+        explicitRegion === undefined && regionalIndexFilterRef.current === mode;
+      if (isSameToggleOff) {
+        setRegionalIndexFilter(null);
+        setRegionalRegionFilter('Semua');
+        setMapLayers((prev) => ({ ...prev, grid: false }));
+        clearQuadranglePopup();
+        return;
+      }
+
+      const nextRegion: RegionalIndexRegion =
+        mode === '100k'
+          ? 'Semua'
+          : explicitRegion ?? 'Semua';
+
+      lastIndexKindRef.current = 'regional';
+      lastRegionalModeRef.current = mode;
+      setMapScaleFilter(null);
+      setRegionalIndexFilter(mode);
+      setRegionalRegionFilter(nextRegion);
+      setMapLayers((prev) => ({ ...prev, grid: true }));
+      clearQuadranglePopup();
+
+      const regionMeta =
+        nextRegion !== 'Semua'
+          ? REGIONAL_REGION_OPTIONS.find((r) => r.value === nextRegion)
+          : null;
+      const modeMeta = REGIONAL_INDEX_OPTIONS.find((o) => o.value === mode);
+
+      if (regionMeta) {
+        setMapFocusTarget((prev) => ({
+          lat: regionMeta.targetCenter[0],
+          lng: regionMeta.targetCenter[1],
+          zoom: regionMeta.targetZoom,
+          label: `Indeks Regional · ${regionMeta.label}`,
+          seq: prev.seq + 1,
+        }));
+      } else if (modeMeta) {
+        setMapFocusTarget((prev) => ({
+          lat: modeMeta.targetCenter[0],
+          lng: modeMeta.targetCenter[1],
+          zoom: modeMeta.targetZoom,
+          label: modeMeta.badgeLabel,
+          seq: prev.seq + 1,
+        }));
+      }
+    },
+    [clearQuadranglePopup],
+  );
+
+  const selectRegionalRegionFilter = useCallback(
+    (region: RegionalIndexRegion) => {
+      const currentMode = regionalIndexFilterRef.current ?? 'all';
+      const nextMode: RegionalIndexMode =
+        region === 'Jawa' && currentMode === '250k' ? 'all' : currentMode;
+      selectRegionalIndexFilter(nextMode, region);
+    },
+    [selectRegionalIndexFilter],
+  );
+
   const syncScaleFromZoom = useCallback((nextZoom: number, prevZoom: number) => {
-    if (!mapLayersGridRef.current) return;
+    if (!mapLayersGridRef.current || regionalIndexFilterRef.current !== null) return;
     const nextScale = resolveMonotonicZoomScale({
       currentScale: mapScaleFilterRef.current,
       prevZoom,
@@ -751,7 +888,12 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
     setBasemap('sat');
     setMapLayers(buildInitialLayers());
     setLayerOpacityState(buildInitialOpacity());
+    lastIndexKindRef.current = 'scale';
+    lastScaleRef.current = '1:250.000';
+    lastRegionalModeRef.current = 'all';
     setMapScaleFilter(null);
+    setRegionalIndexFilter(null);
+    setRegionalRegionFilter('Semua');
     setMapFormatFilter('Semua');
     setMapTypeFilterIds([]);
     setMapPopup(null);
@@ -794,9 +936,30 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
         HIGHLIGHT_MAP_SCALES.find((m) => m.value === quad.scale)?.targetZoom ??
         7;
       setMapLayers((prev) => (prev.grid ? prev : { ...prev, grid: true }));
-      if (!mapScaleFilterRef.current) {
-        lastScaleRef.current = quad.scale;
-        setMapScaleFilter(quad.scale);
+      if (quad.isRegionalIndex) {
+        setMapScaleFilter(null);
+        lastIndexKindRef.current = 'regional';
+        const curMode = regionalIndexFilterRef.current;
+        const incompatibleScale =
+          (curMode === '100k' && quad.scale !== '1:100.000') ||
+          (curMode === '250k' && quad.scale !== '1:250.000');
+        if (!curMode || incompatibleScale) {
+          lastRegionalModeRef.current = 'all';
+          setRegionalIndexFilter('all');
+        }
+        if (!matchesRegionalRegion(quad.region, regionalRegionFilterRef.current)) {
+          setRegionalRegionFilter('Semua');
+        }
+      } else {
+        if (regionalIndexFilterRef.current !== null) {
+          setRegionalIndexFilter(null);
+          setRegionalRegionFilter('Semua');
+        }
+        lastIndexKindRef.current = 'scale';
+        if (!mapScaleFilterRef.current) {
+          lastScaleRef.current = quad.scale;
+          setMapScaleFilter(quad.scale);
+        }
       }
       setMapPopup({ kind: 'quadrangle', item: quad });
       setMapFocusTarget((prev) => ({
@@ -951,6 +1114,10 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
       resetAllLayers,
       mapScaleFilter,
       selectMapScaleFilter,
+      regionalIndexFilter,
+      regionalRegionFilter,
+      selectRegionalIndexFilter,
+      selectRegionalRegionFilter,
       syncScaleFromZoom,
       mapFormatFilter,
       setMapFormatFilter,
@@ -964,6 +1131,10 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
       resetIndonesiaExtent,
       mapStats,
       setMapStats,
+      mapDimension,
+      setMapDimension,
+      mapPitchDeg,
+      setMapPitchDeg,
       nlpGridStats,
       setNlpGridStats,
       mapPopup,
@@ -1039,9 +1210,13 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
       mapFocusTarget,
       mapFormatFilter,
       mapLayers,
+      mapDimension,
+      mapPitchDeg,
       mapPopup,
       mapPopupDocked,
       mapScaleFilter,
+      regionalIndexFilter,
+      regionalRegionFilter,
       mapSearchQuery,
       mapStats,
       mapTypeFilterIds,
@@ -1066,8 +1241,12 @@ export const GeoMapProvider: React.FC<{ children: React.ReactNode }> = ({
       route,
       searchHistory,
       selectMapScaleFilter,
+      selectRegionalIndexFilter,
+      selectRegionalRegionFilter,
       setBasemap,
       setLayerOpacity,
+      setMapDimension,
+      setMapPitchDeg,
       syncScaleFromZoom,
       toggleDarkMode,
       toggleLayer,

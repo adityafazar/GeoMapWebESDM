@@ -97,6 +97,86 @@ export const CatalogFilterSidebar: React.FC<CatalogFilterSidebarProps> = ({
         </div>
       </div>
 
+      {/* Format Unduhan */}
+      <div
+        className="border-t pt-4"
+        style={{ borderColor: 'var(--s-border-subtle)' }}
+      >
+        <span
+          className="mb-1.5 block text-xs font-semibold"
+          style={{ color: 'var(--s-text-secondary)' }}
+        >
+          Format Unduhan
+        </span>
+        <div className="grid grid-cols-3 gap-1.5">
+          {FORMATS.map((fmt) => {
+            const active = catFormat === fmt;
+            return (
+              <button
+                key={fmt}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onChangeFormat(fmt)}
+                className="gm-press gm-focus h-8 rounded-[10px] border px-2 text-[11px] font-semibold cursor-pointer"
+                style={
+                  active
+                    ? {
+                        backgroundColor: 'var(--s-accent-cta-bg)',
+                        color: '#000000',
+                        borderColor: '#D5B600',
+                      }
+                    : {
+                        backgroundColor: 'var(--s-bg-surface-muted)',
+                        borderColor: 'var(--s-border-subtle)',
+                        color: 'var(--s-text-secondary)',
+                      }
+                }
+              >
+                {fmt}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Skala Peta Resmi */}
+      <div
+        className="border-t pt-4"
+        style={{ borderColor: 'var(--s-border-subtle)' }}
+      >
+        <label
+          htmlFor="filter-scale"
+          className="mb-1.5 block text-xs font-semibold"
+          style={{ color: 'var(--s-text-secondary)' }}
+        >
+          Skala Peta Resmi
+        </label>
+        <div className="relative">
+          <select
+            id="filter-scale"
+            value={catScale}
+            onChange={(e) => onChangeScale(e.target.value)}
+            className="gm-focus h-9 w-full appearance-none rounded-xl border pr-9 pl-3 text-xs font-semibold cursor-pointer"
+            style={{
+              backgroundColor: 'var(--s-bg-surface-muted)',
+              borderColor: 'var(--s-border-strong)',
+              color: 'var(--s-text-primary)',
+            }}
+          >
+            {SCALES.map((s) => (
+              <option key={s} value={s}>
+                {s === 'Semua' ? 'Semua Skala (Nasional – Detail)' : `Skala ${s}`}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute top-1/2 right-3 h-3.5 w-3.5 -translate-y-1/2"
+            style={{ color: 'var(--s-text-muted)' }}
+            aria-hidden="true"
+          />
+        </div>
+      </div>
+
       {/* 6 Klaster Tematik Geospasial */}
       <div
         className="border-t pt-4"
@@ -136,86 +216,6 @@ export const CatalogFilterSidebar: React.FC<CatalogFilterSidebarProps> = ({
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Skala Peta Resmi & Format Unduhan */}
-      <div
-        className="space-y-4 border-t pt-4"
-        style={{ borderColor: 'var(--s-border-subtle)' }}
-      >
-        {/* Skala Peta Resmi */}
-        <div>
-          <label
-            htmlFor="filter-scale"
-            className="mb-1.5 block text-xs font-semibold"
-            style={{ color: 'var(--s-text-secondary)' }}
-          >
-            Skala Peta Resmi
-          </label>
-          <div className="relative">
-            <select
-              id="filter-scale"
-              value={catScale}
-              onChange={(e) => onChangeScale(e.target.value)}
-              className="gm-focus h-9 w-full appearance-none rounded-xl border pr-9 pl-3 text-xs font-semibold cursor-pointer"
-              style={{
-                backgroundColor: 'var(--s-bg-surface-muted)',
-                borderColor: 'var(--s-border-strong)',
-                color: 'var(--s-text-primary)',
-              }}
-            >
-              {SCALES.map((s) => (
-                <option key={s} value={s}>
-                  {s === 'Semua' ? 'Semua Skala (Nasional – Detail)' : `Skala ${s}`}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute top-1/2 right-3 h-3.5 w-3.5 -translate-y-1/2"
-              style={{ color: 'var(--s-text-muted)' }}
-              aria-hidden="true"
-            />
-          </div>
-        </div>
-
-        {/* Format Data */}
-        <div>
-          <span
-            className="mb-1.5 block text-xs font-semibold"
-            style={{ color: 'var(--s-text-secondary)' }}
-          >
-            Format Unduhan
-          </span>
-          <div className="grid grid-cols-3 gap-1.5">
-            {FORMATS.map((fmt) => {
-              const active = catFormat === fmt;
-              return (
-                <button
-                  key={fmt}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => onChangeFormat(fmt)}
-                  className="gm-press gm-focus h-8 rounded-[10px] border px-2 text-[11px] font-semibold cursor-pointer"
-                  style={
-                    active
-                      ? {
-                          backgroundColor: 'var(--s-accent-cta-bg)',
-                          color: '#000000',
-                          borderColor: '#D5B600',
-                        }
-                      : {
-                          backgroundColor: 'var(--s-bg-surface-muted)',
-                          borderColor: 'var(--s-border-subtle)',
-                          color: 'var(--s-text-secondary)',
-                        }
-                  }
-                >
-                  {fmt}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
     </aside>

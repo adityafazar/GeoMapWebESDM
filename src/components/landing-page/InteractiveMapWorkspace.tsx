@@ -1,18 +1,50 @@
-import React, { useMemo, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef } from 'react';
 import type L from 'leaflet';
 import { useGeoMap } from '../../context/GeoMapContext';
 import { MAP_LAYERS } from '../../data/geomapData';
 import { computeCartographicScaleBar } from '../../utils/indonesiaNlpGrid';
 import { LayerManagerPanel } from '../layer-manager';
+import type { CesiumCanvasActions } from './CesiumMapCanvas';
 import { LeafletMapCanvas } from './LeafletMapCanvas';
 import { MapFeatureInspector } from './MapFeatureInspector';
 import { MapHudOverlay } from './MapHudOverlay';
 import { MapRightHudFooter } from './MapRightHudFooter';
 import { MobileLayerSheet } from './MobileLayerSheet';
 
+const LazyCesiumMapCanvas = lazy(() =>
+  import('./CesiumMapCanvas').then((m) => ({ default: m.CesiumMapCanvas })),
+);
+
 export const InteractiveMapWorkspace: React.FC = () => {
-  const { mapLayers, mapStats, mapPopup, mapPopupDocked } = useGeoMap();
+  const {
+    mapLayers,
+    mapStats,
+    mapDimension,
+    mapPitchDeg,
+    mapPopup,
+    mapPopupDocked,
+  } = useGeoMap();
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const cesiumActionsRef = useRef<CesiumCanvasActions | null>(null);
+  const prevDimensionRef = useRef(mapDimension);
+  const latestStatsRef = useRef(mapStats);
+  latestStatsRef.current = mapStats;
+
+  useEffect(() => {
+    if (prevDimensionRef.current === '3d' && mapDimension === '2d') {
+      const stats = latestStatsRef.current;
+      try {
+        mapInstanceRef.current?.setView(
+          [stats.lat, stats.lng],
+          Math.max(4, Math.min(14, Math.round(stats.zoom))),
+          { animate: false },
+        );
+      } catch {
+        // Safe fallback in headless mocks
+      }
+    }
+    prevDimensionRef.current = mapDimension;
+  }, [mapDimension]);
 
   const activeLayerObjs = useMemo(
     () => MAP_LAYERS.filter((layer) => mapLayers[layer.key]),
@@ -25,6 +57,10 @@ export const InteractiveMapWorkspace: React.FC = () => {
   );
 
   const handleZoomIn = () => {
+    if (mapDimension === '3d') {
+      cesiumActionsRef.current?.zoomIn();
+      return;
+    }
     try {
       mapInstanceRef.current?.zoomIn();
     } catch {
@@ -33,6 +69,10 @@ export const InteractiveMapWorkspace: React.FC = () => {
   };
 
   const handleZoomOut = () => {
+    if (mapDimension === '3d') {
+      cesiumActionsRef.current?.zoomOut();
+      return;
+    }
     try {
       mapInstanceRef.current?.zoomOut();
     } catch {
@@ -45,8 +85,25 @@ export const InteractiveMapWorkspace: React.FC = () => {
       aria-label="Eksplorasi Peta Interaktif Indonesia"
       className="map-hud-zone relative isolate z-0 h-[calc(100dvh-96px)] md:h-[calc(100dvh-58px)] min-h-[420px] w-full overflow-hidden"
     >
-      {/* Underlying Real Leaflet Canvas */}
-      <LeafletMapCanvas mapRefOut={mapInstanceRef} />
+      {/* Underlying Real Leaflet Canvas (tetap siap saat kembali ke 2D) */}
+      <div
+        className={
+          mapDimension === '3d'
+            ? 'pointer-events-none invisible absolute inset-0 z-0'
+            : 'absolute inset-0 z-0'
+        }
+      >
+        <LeafletMapCanvas mapRefOut={mapInstanceRef} />
+      </div>
+
+      {/* Lazy-Loaded CesiumJS 3D Terrain & Subsurface Globe */}
+      {mapDimension === '3d' && (
+        <div className="absolute inset-0 z-0">
+          <Suspense fallback={null}>
+            <LazyCesiumMapCanvas actionsRef={cesiumActionsRef} />
+          </Suspense>
+        </div>
+      )}
 
       {/* Floating Search + Filter Skala + Left Zoom Controls + Right Manajer Layer HUD */}
       <MapHudOverlay onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
@@ -67,6 +124,8 @@ export const InteractiveMapWorkspace: React.FC = () => {
           scaleLabel={mapStats.scaleLabel}
           scaleBar={scaleBar}
           activeLayerObjs={activeLayerObjs}
+          mapDimension={mapDimension}
+          mapPitchDeg={mapPitchDeg}
         />
       </div>
 

@@ -26,7 +26,6 @@ export const CatalogWorkspace: React.FC = () => {
     catViewMode,
     setCatViewMode,
     resetCatalogFilters,
-    triggerEmptyStateTest,
     registerSearchInput,
     navigate,
     openDatasetOnMainMap,
@@ -122,7 +121,6 @@ export const CatalogWorkspace: React.FC = () => {
         totalDatasets={DATASETS.length}
         catViewMode={catViewMode}
         onChangeViewMode={setCatViewMode}
-        onTriggerEmptyStateTest={triggerEmptyStateTest}
       />
 
       {/* Prototipe v3 Asymmetric Workspace: Left Sticky Spatial Filter Sidebar + Right Catalog Results */}

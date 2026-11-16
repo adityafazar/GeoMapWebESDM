@@ -16,102 +16,19 @@ import {
   computePopupAnchoredMapCenter,
   computeRealScaleRatioLabel,
   generateNlpCellsInViewport,
+  generateRegionalIndexCells,
 } from '../../utils/indonesiaNlpGrid';
-
-const TOPO_PRIMARY_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const TOPO_ARCGIS_FALLBACK_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
-const DARK_GRAY_FALLBACK_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-const LIGHT_GRAY_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-const SATELLITE_PRIMARY_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const RBI_BIG_PRIMARY_URL =
-  'https://geoservices.big.go.id/rbi/rest/services/BASEMAP/Rupabumi_Indonesia/MapServer/tile/{z}/{y}/{x}';
-const TERRAIN_SHADED_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}';
-
-const PROVINCE_DIVIDERS: [number, number][][] = [
-  // Sumatera (Aceh – Sumut – Sumbar/Riau – Jambi – Sumsel – Bengkulu/Lampung)
-  [[4.3, 96.4], [3.5, 98.1], [2.4, 98.8]],
-  [[1.8, 98.8], [0.9, 100.3], [0.2, 101.9]],
-  [[-0.9, 101.2], [-1.3, 102.6], [-1.0, 104.2]],
-  [[-2.3, 101.6], [-2.7, 103.5], [-2.5, 105.0]],
-  [[-4.1, 103.5], [-4.5, 104.8], [-4.1, 105.8]],
-  // Jawa (Banten – DKI – Jawa Barat – Jawa Tengah – DIY – Jawa Timur)
-  [[-6.05, 106.42], [-6.55, 106.48], [-7.0, 106.42]],
-  [[-6.12, 106.68], [-6.25, 107.02]],
-  [[-6.78, 108.82], [-7.25, 108.62], [-7.72, 108.78]],
-  [[-7.55, 110.12], [-7.82, 110.48], [-8.18, 110.75]],
-  [[-6.72, 111.58], [-7.28, 111.15], [-8.18, 111.08]],
-  // Kalimantan (Kalbar – Kalteng – Kalsel – Kaltim – Kaltara)
-  [[1.3, 113.8], [-0.4, 112.1], [-2.9, 110.8]],
-  [[1.4, 114.6], [0.2, 115.4], [-1.8, 115.6], [-3.2, 114.6]],
-  [[-1.6, 115.6], [-2.3, 116.4]],
-  [[2.5, 115.4], [2.0, 117.7]],
-  // Sulawesi (Sulsel – Sulbar – Sulteng – Sultra – Gorontalo – Sulut)
-  [[-2.5, 118.9], [-3.2, 119.5], [-2.6, 121.2]],
-  [[-2.5, 121.2], [-3.8, 122.4]],
-  [[0.4, 121.4], [0.9, 122.2]],
-  [[0.5, 123.3], [1.1, 124.2]],
-  // Bali – NTB & Papua (Papua Barat / Tengah / Selatan)
-  [[-8.3, 115.7], [-8.8, 115.7]],
-  [[-1.9, 134.8], [-3.6, 135.2], [-5.2, 136.5]],
-];
-
-const GEOLOGY_ZONES: {
-  name: string;
-  formation: string;
-  color: string;
-  coords: [number, number][];
-}[] = [
-  {
-    name: 'Zona Busur Vulkanik Jawa Barat',
-    formation: 'Batuan Gunung Api Kuarter (Qvu) & Sedimen Miosen',
-    color: '#D5B600',
-    coords: [
-      [-6.55, 106.45],
-      [-6.62, 108.15],
-      [-7.35, 108.05],
-      [-7.25, 106.45],
-    ],
-  },
-  {
-    name: 'Zona Pegunungan Tengah Jawa Timur–DIY',
-    formation: 'Kompleks Vulkanik Merapi–Semeru & Batugamping Wonosari',
-    color: '#EAB308',
-    coords: [
-      [-7.25, 109.9],
-      [-7.45, 113.2],
-      [-8.3, 113.1],
-      [-8.1, 109.95],
-    ],
-  },
-  {
-    name: 'Lajur Barisan Sumatera',
-    formation: 'Granit Kapur & Formasi Paleogen–Neogen',
-    color: '#CA8A04',
-    coords: [
-      [3.5, 97.6],
-      [0.4, 99.6],
-      [-3.5, 102.0],
-      [-4.1, 103.3],
-      [2.8, 98.9],
-    ],
-  },
-  {
-    name: 'Paparan Sunda & Cekungan Barito Kalimantan',
-    formation: 'Endapan Aluvial Kuarter & Formasi Tanjung–Warukin',
-    color: '#D5B600',
-    coords: [
-      [-1.0, 114.4],
-      [-1.2, 116.5],
-      [-3.4, 116.2],
-      [-3.1, 114.2],
-    ],
-  },
-];
+import {
+  DARK_GRAY_FALLBACK_URL,
+  GEOLOGY_ZONES,
+  LIGHT_GRAY_URL,
+  PROVINCE_DIVIDERS,
+  RBI_BIG_PRIMARY_URL,
+  SATELLITE_PRIMARY_URL,
+  TERRAIN_SHADED_URL,
+  TOPO_ARCGIS_FALLBACK_URL,
+  TOPO_PRIMARY_URL,
+} from '../../data/mapLayerGeometries';
 
 interface LeafletMapCanvasProps {
   mapRefOut?: React.MutableRefObject<L.Map | null>;
@@ -129,10 +46,14 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
     cells: QuadrangleFeature[];
     layerBoxes: {
       code: string;
+      locationLabel?: string;
+      isRegional?: boolean;
       swX: number;
       swY: number;
       neX: number;
       neY: number;
+      centerX: number;
+      centerY: number;
       wPx: number;
       hPx: number;
     }[];
@@ -190,6 +111,8 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
     mapLayers,
     layerOpacity,
     mapScaleFilter,
+    regionalIndexFilter,
+    regionalRegionFilter,
     mapFocusTarget,
     mapPopup,
     setMapStats,
@@ -508,7 +431,7 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
     const reduceMotion =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      Boolean(window.matchMedia('(prefers-reduced-motion: reduce)')?.matches);
 
     try {
       const size = map.getSize();
@@ -540,6 +463,7 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
 
         const anchored = computePopupAnchoredMapCenter({
           bounds: mapFocusTarget.anchorBounds,
+          anchorCenter: [mapFocusTarget.lat, mapFocusTarget.lng],
           containerHeight: size.y,
           popupHeight,
           currentZoom: map.getZoom(),
@@ -886,22 +810,31 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
     ) => {
       const boxes: {
         code: string;
+        locationLabel?: string;
+        isRegional?: boolean;
         swX: number;
         swY: number;
         neX: number;
         neY: number;
+        centerX: number;
+        centerY: number;
         wPx: number;
         hPx: number;
       }[] = [];
       for (const cell of cells) {
         const pSW = map.latLngToLayerPoint(cell.bounds[0]);
         const pNE = map.latLngToLayerPoint(cell.bounds[1]);
+        const pCenter = map.latLngToLayerPoint(cell.center);
         boxes.push({
           code: cell.code,
+          locationLabel: cell.locationLabel,
+          isRegional: cell.isRegionalIndex,
           swX: pSW.x,
           swY: pSW.y,
           neX: pNE.x,
           neY: pNE.y,
+          centerX: pCenter.x,
+          centerY: pCenter.y,
           wPx: Math.abs(pNE.x - pSW.x),
           hPx: Math.abs(pSW.y - pNE.y),
         });
@@ -977,23 +910,62 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
       const offsetY = topLeftLayer.y;
       ctx.lineWidth = 3.2;
 
+      const drawBoxLabel = (
+        box: (typeof state.layerBoxes)[number],
+        isSel: boolean,
+      ) => {
+        const cx = box.centerX - offsetX;
+        const cy = box.centerY - offsetY;
+        ctx.strokeStyle = isSel ? 'rgba(15, 23, 42, 0.92)' : defaultStroke;
+        ctx.fillStyle = isSel ? '#FFF500' : defaultFill;
+
+        if (box.isRegional && box.locationLabel && box.wPx >= 68 && box.hPx >= 36) {
+          ctx.font =
+            '700 10px "Poppins", -apple-system, BlinkMacSystemFont, sans-serif';
+          ctx.strokeText(box.code, cx, cy - 6, Math.max(24, box.wPx - 8));
+          ctx.fillText(box.code, cx, cy - 6, Math.max(24, box.wPx - 8));
+
+          ctx.font =
+            '600 9px "Poppins", -apple-system, BlinkMacSystemFont, sans-serif';
+          ctx.strokeText(box.locationLabel, cx, cy + 6, Math.max(24, box.wPx - 8));
+          ctx.fillText(box.locationLabel, cx, cy + 6, Math.max(24, box.wPx - 8));
+        } else {
+          ctx.font =
+            '700 10.5px "Poppins", -apple-system, BlinkMacSystemFont, sans-serif';
+          if (box.isRegional) {
+            const maxW = Math.max(24, box.wPx - 6);
+            ctx.strokeText(box.code, cx, cy, maxW);
+            ctx.fillText(box.code, cx, cy, maxW);
+          } else {
+            ctx.strokeText(box.code, cx, cy);
+            ctx.fillText(box.code, cx, cy);
+          }
+        }
+      };
+
+      let selectedBox: (typeof state.layerBoxes)[number] | null = null;
       for (let i = 0; i < state.layerBoxes.length; i += 1) {
         const box = state.layerBoxes[i];
-        if (box.wPx < 40 || box.hPx < 22) continue;
+        const minW = box.isRegional ? 32 : 40;
+        const minH = box.isRegional ? 18 : 22;
+        if (box.wPx < minW || box.hPx < minH) continue;
         if (state.pillCodes.has(box.code)) continue;
 
-        const cx = (box.swX + box.neX) * 0.5 - offsetX;
-        const cy = (box.swY + box.neY) * 0.5 - offsetY;
+        const cx = box.centerX - offsetX;
+        const cy = box.centerY - offsetY;
         if (cx < -36 || cx > size.x + 36 || cy < -20 || cy > size.y + 20) {
           continue;
         }
 
-        const isSel = state.selectedCode === box.code;
-        ctx.strokeStyle = isSel ? 'rgba(15, 23, 42, 0.92)' : defaultStroke;
-        ctx.strokeText(box.code, cx, cy);
+        if (state.selectedCode === box.code) {
+          selectedBox = box;
+          continue;
+        }
+        drawBoxLabel(box, false);
+      }
 
-        ctx.fillStyle = isSel ? '#FFF500' : defaultFill;
-        ctx.fillText(box.code, cx, cy);
+      if (selectedBox) {
+        drawBoxLabel(selectedBox, true);
       }
     };
 
@@ -1060,6 +1032,58 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
 
       // Headless jsdom fallback (0x0 container): keep deterministic catalog highlights testable
       if (size.x <= 0 || size.y <= 0) {
+        if (regionalIndexFilter !== null) {
+          const regionalGenerated = generateRegionalIndexCells({
+            mode: regionalIndexFilter,
+            regionFilter: regionalRegionFilter,
+          });
+          for (const quad of regionalGenerated.cells) {
+            const meta = HIGHLIGHT_MAP_SCALES.find((m) => m.value === quad.scale);
+            const baseStroke = meta?.strokeColor ?? '#7C3AED';
+            const baseFill = meta?.fillColor ?? '#A78BFA';
+            const isSelected = currentSelectedCode === quad.code;
+            const strokeColor = isSelected ? '#FFF500' : baseStroke;
+            const fillColor = isSelected ? '#FFF500' : baseFill;
+            const baseWeight = 1.8;
+            const baseOpacity = 0.92 * op;
+            const baseFillOp = 0.18 * op;
+            const rect = L.rectangle(quad.bounds, {
+              className: 'gm-quad-rect',
+              color: strokeColor,
+              weight: isSelected ? 3.2 : baseWeight,
+              opacity: baseOpacity,
+              fillColor,
+              fillOpacity: isSelected ? 0.36 * op : baseFillOp,
+              interactive: true,
+            })
+              .on('click', (ev: L.LeafletMouseEvent) => handleGridQuadClick(quad, ev))
+              .addTo(groups.grid);
+
+            renderedGridEntriesRef.current.set(quad.code, {
+              rect,
+              quad,
+              isCatalog: true,
+              baseStroke,
+              baseFill,
+              baseWeight,
+              baseOpacity,
+              baseFillOp,
+              op,
+            });
+            addCatalogBadgeMarker(quad, baseStroke);
+          }
+          setNlpGridStatsRef.current({
+            requestedScale: regionalGenerated.renderedScale,
+            renderedScale: regionalGenerated.renderedScale,
+            isParentFallback: false,
+            isRegional: true,
+            visibleCount: regionalGenerated.totalCount,
+            visibleCells: regionalGenerated.cells.slice(0, 14),
+          });
+          groups.grid.addTo(map);
+          return;
+        }
+
         const visibleQuads = QUADRANGLE_GRIDS.filter(
           (q) => q.scale === activeScale,
         );
@@ -1102,6 +1126,7 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
           requestedScale: activeScale,
           renderedScale: activeScale,
           isParentFallback: false,
+          isRegional: false,
           visibleCount: visibleQuads.length,
           visibleCells: visibleQuads,
         });
@@ -1109,8 +1134,124 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
         return;
       }
 
-      // Browser interactive mode: viewport-culled real Indonesian SNI 6502 / IMW NLP Grid on Canvas
+      // Browser interactive mode: Indeks Geologi Regional PSG (Ndx GL-ID 100-250) on Canvas
       const bounds = map.getBounds();
+      if (regionalIndexFilter !== null) {
+        const regionalGenerated = generateRegionalIndexCells({
+          mode: regionalIndexFilter,
+          regionFilter: regionalRegionFilter,
+          viewportBounds: {
+            south: bounds.getSouth(),
+            north: bounds.getNorth(),
+            west: bounds.getWest(),
+            east: bounds.getEast(),
+          },
+        });
+        const pillCodes = new Set<string>();
+        // Gambar lembar area besar lebih dulu agar lembar lebih kecil di atasnya tetap dapat diklik langsung
+        const orderedRegionalCells = [...regionalGenerated.cells].sort((a, b) => {
+          const areaA =
+            (a.bounds[1][0] - a.bounds[0][0]) * (a.bounds[1][1] - a.bounds[0][1]);
+          const areaB =
+            (b.bounds[1][0] - b.bounds[0][0]) * (b.bounds[1][1] - b.bounds[0][1]);
+          return areaB - areaA;
+        });
+        let selectedRegionalRect: L.Rectangle | null = null;
+
+        for (const cell of orderedRegionalCells) {
+          const cellMeta = HIGHLIGHT_MAP_SCALES.find(
+            (m) => m.value === cell.scale,
+          );
+          const cellStroke = cellMeta?.strokeColor ?? '#7C3AED';
+          const cellFill = cellMeta?.fillColor ?? '#A78BFA';
+          const isSelected = currentSelectedCode === cell.code;
+          const baseWeight = 1.5;
+          const baseOpacity = 0.88 * op;
+          const baseFillOp = 0.11 * op;
+
+          const rect = L.rectangle(cell.bounds, {
+            renderer,
+            color: isSelected ? '#FFF500' : cellStroke,
+            weight: isSelected ? 3.0 : baseWeight,
+            opacity: isSelected ? 0.96 * op : baseOpacity,
+            fillColor: isSelected ? '#FFF500' : cellFill,
+            fillOpacity: isSelected ? 0.34 * op : baseFillOp,
+            interactive: true,
+          })
+            .on('mouseover', () => {
+              if (isMapMovingRef.current) return;
+              const currentlySel = selectedQuadCodeRef.current === cell.code;
+              rect.setStyle({
+                weight: currentlySel ? 3.4 : 2.8,
+                fillOpacity: currentlySel
+                  ? Math.min(0.46, 0.34 * op + 0.08)
+                  : Math.min(0.42, baseFillOp + 0.16),
+              });
+            })
+            .on('mouseout', () => {
+              if (isMapMovingRef.current) return;
+              const currentlySel = selectedQuadCodeRef.current === cell.code;
+              rect.setStyle({
+                weight: currentlySel ? 3.0 : baseWeight,
+                fillOpacity: currentlySel ? 0.34 * op : baseFillOp,
+              });
+            })
+            .on('click', (ev: L.LeafletMouseEvent) => handleGridQuadClick(cell, ev))
+            .addTo(groups.grid);
+
+          if (isSelected) {
+            selectedRegionalRect = rect;
+          }
+
+          renderedGridEntriesRef.current.set(cell.code, {
+            rect,
+            quad: cell,
+            isCatalog: true,
+            baseStroke: cellStroke,
+            baseFill: cellFill,
+            baseWeight,
+            baseOpacity,
+            baseFillOp,
+            op,
+          });
+        }
+
+        const currentZoom = map.getZoom();
+        const rebuilt = rebuildLayerBoxes(orderedRegionalCells, currentZoom);
+
+        visibleGridCellsRef.current = {
+          cells: orderedRegionalCells,
+          layerBoxes: rebuilt.boxes,
+          layerZoom: rebuilt.zoom,
+          pillCodes,
+          opacity: op,
+          selectedCode: currentSelectedCode,
+          strokeColor: '#7C3AED',
+          isDarkSurface,
+          activeScale: regionalGenerated.renderedScale,
+        };
+        setNlpGridStatsRef.current({
+          requestedScale: regionalGenerated.renderedScale,
+          renderedScale: regionalGenerated.renderedScale,
+          isParentFallback: false,
+          isRegional: true,
+          visibleCount: regionalGenerated.totalCount,
+          visibleCells: regionalGenerated.cells.slice(0, 14),
+        });
+
+        groups.grid.addTo(map);
+        if (selectedRegionalRect) {
+          try {
+            selectedRegionalRect.bringToFront();
+          } catch {
+            // Safe fallback in headless mocks
+          }
+        }
+        renderLabels();
+        return;
+      }
+
+      // Browser interactive mode: viewport-culled real Indonesian SNI 6502 / IMW NLP Grid on Canvas
       const center = map.getCenter();
       const spec = SCALE_GRID_SPECS[activeScale];
       const cellPxW = Math.abs(
@@ -1136,6 +1277,7 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
       const renderedFill = scaleMeta?.fillColor ?? '#233C5A';
       const drawnCodes = new Set<string>();
       const pillCodes = new Set<string>();
+      const selectedNlpRects: L.Rectangle[] = [];
 
       // 1. Draw all real NLP tessellation rectangles on L.canvas
       for (const cell of generated.cells) {
@@ -1165,9 +1307,12 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
         })
           .on('mouseover', () => {
             if (isMapMovingRef.current) return;
+            const currentlySel = selectedQuadCodeRef.current === cell.code;
             rect.setStyle({
-              weight: isCatalogCell ? 3.2 : 2.3,
-              fillOpacity: Math.min(0.42, baseFillOp + 0.16),
+              weight: currentlySel ? 3.4 : isCatalogCell ? 3.2 : 2.3,
+              fillOpacity: currentlySel
+                ? Math.min(0.46, 0.32 * op + 0.08)
+                : Math.min(0.42, baseFillOp + 0.16),
             });
           })
           .on('mouseout', () => {
@@ -1180,6 +1325,10 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
           })
           .on('click', (ev: L.LeafletMouseEvent) => handleGridQuadClick(cell, ev))
           .addTo(groups.grid);
+
+        if (isSelected) {
+          selectedNlpRects.push(rect);
+        }
 
         renderedGridEntriesRef.current.set(cell.code, {
           rect,
@@ -1224,9 +1373,12 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
           })
             .on('mouseover', () => {
               if (isMapMovingRef.current) return;
+              const currentlySel = selectedQuadCodeRef.current === quad.code;
               rect.setStyle({
-                weight: 3.0,
-                fillOpacity: Math.min(0.45, baseFillOp + 0.14),
+                weight: currentlySel ? 3.2 : 3.0,
+                fillOpacity: currentlySel
+                  ? Math.min(0.46, 0.34 * op + 0.08)
+                  : Math.min(0.45, baseFillOp + 0.14),
               });
             })
             .on('mouseout', () => {
@@ -1239,6 +1391,10 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
             })
             .on('click', (ev: L.LeafletMouseEvent) => handleGridQuadClick(quad, ev))
             .addTo(groups.grid);
+
+          if (isSelected) {
+            selectedNlpRects.push(rect);
+          }
 
           renderedGridEntriesRef.current.set(quad.code, {
             rect,
@@ -1285,18 +1441,34 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
         requestedScale: generated.requestedScale,
         renderedScale: generated.renderedScale,
         isParentFallback: generated.isParentFallback,
+        isRegional: false,
         visibleCount: generated.totalCount,
         visibleCells: [...catalogVisible, ...computedNearest].slice(0, 14),
       });
 
       groups.grid.addTo(map);
+      for (const r of selectedNlpRects) {
+        try {
+          r.bringToFront();
+        } catch {
+          // Safe fallback in headless mocks
+        }
+      }
       renderLabels();
     };
 
     renderLabelsRef.current = renderLabels;
     renderGridRef.current = renderGrid;
     renderGrid();
-  }, [basemap, darkMode, layerOpacity.grid, mapLayers.grid, mapScaleFilter]);
+  }, [
+    basemap,
+    darkMode,
+    layerOpacity.grid,
+    mapLayers.grid,
+    mapScaleFilter,
+    regionalIndexFilter,
+    regionalRegionFilter,
+  ]);
 
   // Fast O(1) style update when only selectedQuadCode changes (avoids recreating 480 grid layers on click)
   useEffect(() => {
@@ -1305,9 +1477,11 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
     prevSelectedQuadCodeRef.current = selectedQuadCode;
 
     const entries = renderedGridEntriesRef.current;
+    let deselectedRegional = false;
     if (prevCode) {
       const prevEntry = entries.get(prevCode);
       if (prevEntry) {
+        deselectedRegional = Boolean(prevEntry.quad.isRegionalIndex);
         prevEntry.rect.setStyle({
           color: prevEntry.baseStroke,
           fillColor: prevEntry.baseFill,
@@ -1328,6 +1502,17 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
       }
     }
 
+    if (deselectedRegional && !selectedQuadCode && mapRef.current) {
+      try {
+        if (mapRef.current.getSize().x > 0) {
+          renderGridRef.current?.();
+          return;
+        }
+      } catch {
+        // Safe fallback in headless mocks
+      }
+    }
+
     if (selectedQuadCode) {
       const nextEntry = entries.get(selectedQuadCode);
       if (nextEntry) {
@@ -1338,6 +1523,11 @@ export const LeafletMapCanvas: React.FC<LeafletMapCanvasProps> = ({
           opacity: 0.95 * nextEntry.op,
           fillOpacity: 0.32 * nextEntry.op,
         });
+        try {
+          nextEntry.rect.bringToFront();
+        } catch {
+          // Safe fallback in headless mocks
+        }
         if (nextEntry.marker) {
           nextEntry.marker.setIcon(
             buildCatalogBadgeIcon(

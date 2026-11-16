@@ -3,8 +3,17 @@ import {
   QUADRANGLE_GRIDS,
   type MapScaleValue,
   type QuadrangleFeature,
+  type RegionalIndexMode,
+  type RegionalIndexRegion,
 } from '../data/geomapData';
 import { resolveCellLocationLabel } from '../data/indonesiaGazetteer';
+import { INDEX_1M_QUADRANGLES } from '../data/index1mData';
+import { INDEX_50K_SHEETS } from '../data/index50kData';
+import {
+  INDEX_100K_OFFICIAL_SHEETS,
+  INDEX_250K_OFFICIAL_SHEETS,
+  type IndexRegionalSheet,
+} from '../data/indexRegionalData';
 
 /** Titik asal standar SNI 6502 / BIG (Bakosurtanal): 90° BT dan 15° LS */
 export const SNI_NLP_ORIGIN_LNG = 90.0;
@@ -525,7 +534,7 @@ export function generateNlpCellsInViewport(params: {
       renderedScale = '1:250.000';
       isParentFallback = true;
     } else if (scale === '1:250.000' && cellPixelWidth < 8) {
-      renderedScale = '1:500.000';
+      renderedScale = '1:1.000.000';
       isParentFallback = true;
     }
   }
@@ -540,60 +549,60 @@ export function generateNlpCellsInViewport(params: {
     const nationalCells: QuadrangleFeature[] = [
       baratCatalog
         ? {
-            ...baratCatalog,
-            isComputedGrid: false,
-            parentCode: 'Indonesia (Nasional)',
-            gridResolution: spec.resolutionLabel,
-            standardName: spec.standardName,
-          }
+          ...baratCatalog,
+          isComputedGrid: false,
+          parentCode: 'Indonesia (Nasional)',
+          gridResolution: spec.resolutionLabel,
+          standardName: spec.standardName,
+        }
         : {
-            code: 'NAS-BARAT',
-            name: 'Lembar Nasional Nusantara Barat',
-            scale: '1:5.000.000',
-            region: 'Nasional',
-            year: 2025,
-            hasShp: true,
-            summary: `Peta tematik cakupan wilayah Indonesia Barat (${spec.resolutionLabel}).`,
-            slug: 'peta-geologi-indonesia',
-            bounds: [
-              [-11.0, 94.5],
-              [6.5, 119.5],
-            ],
-            center: [-2.25, 107.0],
-            isComputedGrid: true,
-            locationLabel: 'Indonesia Timur',
-            parentCode: 'Indonesia (Nasional)',
-            gridResolution: spec.resolutionLabel,
-            standardName: spec.standardName,
-          },
+          code: 'NAS-BARAT',
+          name: 'Lembar Nasional Nusantara Barat',
+          scale: '1:5.000.000',
+          region: 'Nasional',
+          year: 2025,
+          hasShp: true,
+          summary: `Peta tematik cakupan wilayah Indonesia Barat (${spec.resolutionLabel}).`,
+          slug: 'peta-geologi-indonesia',
+          bounds: [
+            [-11.0, 94.5],
+            [6.5, 119.5],
+          ],
+          center: [-2.25, 107.0],
+          isComputedGrid: true,
+          locationLabel: 'Indonesia Barat',
+          parentCode: 'Indonesia (Nasional)',
+          gridResolution: spec.resolutionLabel,
+          standardName: spec.standardName,
+        },
       timurCatalog
         ? {
-            ...timurCatalog,
-            isComputedGrid: false,
-            parentCode: 'Indonesia (Nasional)',
-            gridResolution: spec.resolutionLabel,
-            standardName: spec.standardName,
-          }
+          ...timurCatalog,
+          isComputedGrid: false,
+          parentCode: 'Indonesia (Nasional)',
+          gridResolution: spec.resolutionLabel,
+          standardName: spec.standardName,
+        }
         : {
-            code: 'NAS-TIMUR',
-            name: 'Lembar NLP NAS-TIMUR',
-            scale: '1:5.000.000',
-            region: 'Nasional',
-            year: 2025,
-            hasShp: true,
-            summary: `Grid lembar resmi ${spec.standardName} (${spec.resolutionLabel}) wilayah Sulawesi, Nusa Tenggara, Maluku, hingga Papua.`,
-            slug: 'peta-tektonik-indonesia',
-            bounds: [
-              [-11.0, 119.5],
-              [6.5, 141.5],
-            ],
-            center: [-2.25, 130.5],
-            isComputedGrid: true,
-            locationLabel: 'Indonesia Timur',
-            parentCode: 'Indonesia (Nasional)',
-            gridResolution: spec.resolutionLabel,
-            standardName: spec.standardName,
-          },
+          code: 'NAS-TIMUR',
+          name: 'Lembar NLP NAS-TIMUR',
+          scale: '1:5.000.000',
+          region: 'Nasional',
+          year: 2025,
+          hasShp: true,
+          summary: `Grid lembar resmi ${spec.standardName} (${spec.resolutionLabel}) wilayah Sulawesi, Nusa Tenggara, Maluku, hingga Papua.`,
+          slug: 'peta-tektonik-indonesia',
+          bounds: [
+            [-11.0, 119.5],
+            [6.5, 141.5],
+          ],
+          center: [-2.25, 130.5],
+          isComputedGrid: true,
+          locationLabel: 'Indonesia Timur',
+          parentCode: 'Indonesia (Nasional)',
+          gridResolution: spec.resolutionLabel,
+          standardName: spec.standardName,
+        },
     ];
     return {
       requestedScale: scale,
@@ -605,14 +614,166 @@ export function generateNlpCellsInViewport(params: {
     };
   }
 
-  const originLat =
-    renderedScale === '1:1.000.000' || renderedScale === '1:500.000'
-      ? -12.0
-      : SNI_NLP_ORIGIN_LAT;
-  const originLng =
-    renderedScale === '1:1.000.000' || renderedScale === '1:500.000'
-      ? 90.0
-      : SNI_NLP_ORIGIN_LNG;
+  // Skala 1:1.000.000 menggunakan 16 lembar resmi dari arsip Ndx GL-ID 1M (I–XVI)
+  if (renderedScale === '1:1.000.000') {
+    const cells1m = INDEX_1M_QUADRANGLES.filter((q) => {
+      const [[south, west], [north, east]] = q.bounds;
+      return (
+        north > viewportBounds.south &&
+        south < viewportBounds.north &&
+        east > viewportBounds.west &&
+        west < viewportBounds.east
+      );
+    }).map((q) => ({
+      ...q,
+      isComputedGrid: false,
+    }));
+
+    return {
+      requestedScale: scale,
+      renderedScale,
+      isParentFallback,
+      cells: cells1m,
+      catalogMatches,
+      totalCount: cells1m.length,
+    };
+  }
+
+  // Skala 1:250.000 menggunakan 177 lembar resmi terpisah dari 100-250.zip (Ndx GL-ID 250K)
+  if (renderedScale === '1:250.000') {
+    const cells250k = INDEX_250K_QUADRANGLES.filter((q) => {
+      const [[south, west], [north, east]] = q.bounds;
+      return (
+        north > viewportBounds.south &&
+        south < viewportBounds.north &&
+        east > viewportBounds.west &&
+        west < viewportBounds.east
+      );
+    }).slice(0, maxCells);
+
+    return {
+      requestedScale: scale,
+      renderedScale,
+      isParentFallback,
+      cells: cells250k,
+      catalogMatches,
+      totalCount: cells250k.length,
+    };
+  }
+
+  // Skala 1:100.000 menggunakan 57 lembar resmi terpisah dari 100-250.zip (Ndx GL-JW 100K)
+  if (renderedScale === '1:100.000') {
+    const cells100k = INDEX_100K_QUADRANGLES.filter((q) => {
+      const [[south, west], [north, east]] = q.bounds;
+      return (
+        north > viewportBounds.south &&
+        south < viewportBounds.north &&
+        east > viewportBounds.west &&
+        west < viewportBounds.east
+      );
+    }).slice(0, maxCells);
+
+    return {
+      requestedScale: scale,
+      renderedScale,
+      isParentFallback,
+      cells: cells100k,
+      catalogMatches,
+      totalCount: cells100k.length,
+    };
+  }
+
+  // Skala 1:50.000 menggunakan data resmi 3.903 lembar dari shapefile INDEX_50K
+  if (renderedScale === '1:50.000') {
+    const cells50k: QuadrangleFeature[] = [];
+    for (const [code, rawName, south, west, rawRegion, rawYear] of INDEX_50K_SHEETS) {
+      const north = roundDeg(south + 0.25);
+      if (north <= viewportBounds.south) continue;
+      if (south >= viewportBounds.north) break;
+
+      const east = roundDeg(west + 0.25);
+      if (east <= viewportBounds.west || west >= viewportBounds.east) continue;
+
+      const cacheKey = `1:50.000::${code}`;
+      let cachedCell = computedGridCellCache.get(cacheKey);
+      if (cachedCell === undefined) {
+        const cLat = roundDeg(south + 0.125);
+        const cLng = roundDeg(west + 0.125);
+        const parentCode = computeSniNlpCode(cLat, cLng, '1:50.000').parent100k;
+        const catalogHit = catalogByScaleAndCode.get(cacheKey);
+
+        if (catalogHit) {
+          cachedCell = {
+            ...catalogHit,
+            locationLabel: catalogHit.locationLabel ?? (rawName || undefined),
+            isComputedGrid: false,
+            parentCode,
+            gridResolution: spec.resolutionLabel,
+            standardName: spec.standardName,
+          };
+        } else {
+          const region =
+            rawRegion ||
+            inferIndonesiaRegion(south, west, north, east) ||
+            'Indonesia';
+          const locationLabel =
+            rawName ||
+            resolveCellLocationLabel({
+              south,
+              west,
+              north,
+              east,
+              centerLat: cLat,
+              centerLng: cLng,
+              region,
+            });
+          const boundsLabel = `${formatDmsCoord(south, 'lat')} – ${formatDmsCoord(north, 'lat')}, ${formatDmsCoord(west, 'lng')} – ${formatDmsCoord(east, 'lng')}`;
+          cachedCell = {
+            code,
+            name: `Lembar ${locationLabel} (${code})`,
+            scale: '1:50.000',
+            region,
+            locationLabel,
+            year: rawYear || 2024,
+            hasShp: false,
+            summary: `Peta geospasial wilayah ${locationLabel}, ${region} pada indeks lembar ${code} skala 1:50.000 (${boundsLabel}).`,
+            slug: findFallbackDatasetSlug(region, '1:50.000'),
+            bounds: [
+              [south, west],
+              [north, east],
+            ],
+            center: [cLat, cLng],
+            isComputedGrid: true,
+            parentCode,
+            gridResolution: spec.resolutionLabel,
+            standardName: spec.standardName,
+          };
+        }
+
+        if (computedGridCellCache.size >= MAX_CELL_CACHE_ENTRIES) {
+          computedGridCellCache.clear();
+        }
+        computedGridCellCache.set(cacheKey, cachedCell);
+      }
+
+      if (cachedCell) {
+        cells50k.push(cachedCell);
+        if (cells50k.length >= maxCells) break;
+      }
+    }
+
+    return {
+      requestedScale: scale,
+      renderedScale,
+      isParentFallback,
+      cells: cells50k,
+      catalogMatches,
+      totalCount: cells50k.length,
+    };
+  }
+
+  const originLat = renderedScale === '1:500.000' ? -12.0 : SNI_NLP_ORIGIN_LAT;
+  const originLng = renderedScale === '1:500.000' ? 90.0 : SNI_NLP_ORIGIN_LNG;
 
   const sClip = Math.max(INDONESIA_GRID_ENVELOPE.south, viewportBounds.south);
   const nClip = Math.min(INDONESIA_GRID_ENVELOPE.north, viewportBounds.north);
@@ -645,46 +806,22 @@ export function generateNlpCellsInViewport(params: {
           if (!region) {
             cachedCell = null;
           } else {
-            let code = '';
-            let parentCode = '';
-
-            if (
-              renderedScale === '1:250.000' ||
-              renderedScale === '1:100.000' ||
-              renderedScale === '1:50.000'
-            ) {
-              const nlp = computeSniNlpCode(cLat, cLng, renderedScale);
-              code = nlp.code;
-              parentCode =
-                renderedScale === '1:50.000'
-                  ? nlp.parent100k
-                  : renderedScale === '1:100.000'
-                    ? nlp.parent250k
-                    : 'Indonesia (SNI 6502)';
-            } else {
-              const imw = computeImwCode(
-                cLat,
-                cLng,
-                renderedScale as '1:1.000.000' | '1:500.000',
-              );
-              code = imw.code;
-              parentCode = imw.parentCode;
-            }
+            const imw = computeImwCode(cLat, cLng, '1:500.000');
+            const code = imw.code;
+            const parentCode = imw.parentCode;
 
             // Cocokkan langsung dengan lembar unggulan katalog di skala & kode yang sama
             const catalogExact = catalogByScaleAndCode.get(`${renderedScale}::${code}`);
             // Juga cek apakah ada lembar katalog di skala yang sama yang berpusat di dalam sel ini (mis. PSG-JB-500 di SB-48-SE)
             const catalogContained =
               catalogExact ??
-              (renderedScale === '1:500.000' || renderedScale === '1:1.000.000'
-                ? renderedCatalogList.find(
-                    (q) =>
-                      q.center[0] >= south &&
-                      q.center[0] < north &&
-                      q.center[1] >= west &&
-                      q.center[1] < east,
-                  )
-                : undefined);
+              renderedCatalogList.find(
+                (q) =>
+                  q.center[0] >= south &&
+                  q.center[0] < north &&
+                  q.center[1] >= west &&
+                  q.center[1] < east,
+              );
 
             if (catalogContained) {
               cachedCell = {
@@ -717,7 +854,7 @@ export function generateNlpCellsInViewport(params: {
                 region,
                 locationLabel,
                 year: 2025,
-                hasShp: renderedScale !== '1:50.000',
+                hasShp: true,
                 summary: `Peta geospasial wilayah ${locationLabel}, ${region} pada indeks lembar ${code} skala ${renderedScale} (${boundsLabel}).`,
                 slug: findFallbackDatasetSlug(region, renderedScale),
                 bounds: [
@@ -755,6 +892,135 @@ export function generateNlpCellsInViewport(params: {
     isParentFallback,
     cells,
     catalogMatches,
+    totalCount: cells.length,
+  };
+}
+
+function mapOfficialSheetToQuadrangle(
+  sheet: IndexRegionalSheet,
+): QuadrangleFeature {
+  const scale: MapScaleValue =
+    sheet.Skala === 100000 ? '1:100.000' : '1:250.000';
+  const [[south, west], [north, east]] = sheet.bounds;
+  const yearNum = Number.parseInt(sheet.Tahun, 10) || 0;
+  const boundsLabel = `${formatDmsCoord(south, 'lat')} – ${formatDmsCoord(north, 'lat')}, ${formatDmsCoord(west, 'lng')} – ${formatDmsCoord(east, 'lng')}`;
+  const yearNote = yearNum > 0 ? ` Tahun terbit ${yearNum}.` : '';
+  const catalogHit = catalogByScaleAndCode.get(`${scale}::${sheet.nlpCode}`);
+  const parentCode =
+    scale === '1:100.000' ? sheet.nlpCode.split('-')[0] : 'Indonesia (PSG)';
+
+  return {
+    code: sheet.nlpCode,
+    name: `Lembar ${sheet.Nama_Lembar_PSG}`,
+    scale,
+    region: sheet.Wilayah,
+    locationLabel: sheet.Nama_Lembar_PSG,
+    year: yearNum,
+    hasShp: true,
+    summary: `Indeks peta geologi regional (${sheet.Kode_Tema}) wilayah ${sheet.Nama_Lembar_PSG}, ${sheet.Wilayah} pada skala ${scale} (${boundsLabel}).${yearNote}`,
+    slug: catalogHit?.slug ?? findFallbackDatasetSlug(sheet.Wilayah, scale),
+    bounds: sheet.bounds,
+    center: sheet.center,
+    isComputedGrid: false,
+    isRegionalIndex: true,
+    themeCode: sheet.Kode_Tema,
+    compilers: sheet.Penyusun || undefined,
+    publisher: sheet.Instansi,
+    parentCode,
+    gridResolution:
+      scale === '1:100.000'
+        ? "30' × 30' (GL-JW 100)"
+        : "1° × 1°30' (GL-ID 250)",
+    standardName: 'Indeks Peta Geologi Regional PSG (Ndx GL-ID 100-250)',
+  };
+}
+
+function sortByDescendingMbrArea(
+  list: readonly QuadrangleFeature[],
+): QuadrangleFeature[] {
+  return [...list].sort((a, b) => {
+    const areaA =
+      (a.bounds[1][0] - a.bounds[0][0]) * (a.bounds[1][1] - a.bounds[0][1]);
+    const areaB =
+      (b.bounds[1][0] - b.bounds[0][0]) * (b.bounds[1][1] - b.bounds[0][1]);
+    return areaB - areaA;
+  });
+}
+
+/** 57 lembar resmi skala 1:100.000 (terpisah dari 100-250.zip, terurut luas MBR terbesar ke terkecil) */
+export const INDEX_100K_QUADRANGLES: readonly QuadrangleFeature[] =
+  sortByDescendingMbrArea(
+    INDEX_100K_OFFICIAL_SHEETS.map(mapOfficialSheetToQuadrangle),
+  );
+
+/** 177 lembar resmi skala 1:250.000 (terpisah dari 100-250.zip, terurut luas MBR terbesar ke terkecil) */
+export const INDEX_250K_QUADRANGLES: readonly QuadrangleFeature[] =
+  sortByDescendingMbrArea(
+    INDEX_250K_OFFICIAL_SHEETS.map(mapOfficialSheetToQuadrangle),
+  );
+
+export const REGIONAL_INDEX_QUADRANGLES: readonly QuadrangleFeature[] = [
+  ...INDEX_100K_QUADRANGLES,
+  ...INDEX_250K_QUADRANGLES,
+];
+
+export function matchesRegionalRegion(
+  sheetRegion: string,
+  filterRegion: RegionalIndexRegion,
+): boolean {
+  if (filterRegion === 'Semua') return true;
+  if (filterRegion === 'Bali & Nusa Tenggara') {
+    return sheetRegion === 'Bali' || sheetRegion === 'Nusa Tenggara';
+  }
+  return sheetRegion === filterRegion;
+}
+
+export interface RegionalViewportGenerationResult {
+  mode: RegionalIndexMode;
+  regionFilter: RegionalIndexRegion;
+  renderedScale: MapScaleValue;
+  cells: QuadrangleFeature[];
+  totalCatalogCount: number;
+  totalCount: number;
+}
+
+/**
+ * Menghasilkan lembar Indeks Geologi Regional PSG (Ndx GL-ID 100-250: 57 lembar Jawa 1:100.000
+ * dan 177 lembar Luar Jawa 1:250.000) dengan dukungan filter skala regional, wilayah, dan viewport.
+ */
+export function generateRegionalIndexCells(params: {
+  mode: RegionalIndexMode;
+  regionFilter?: RegionalIndexRegion;
+  viewportBounds?: { south: number; north: number; west: number; east: number };
+}): RegionalViewportGenerationResult {
+  const { mode, regionFilter = 'Semua', viewportBounds } = params;
+  const targetScale: MapScaleValue | null =
+    mode === '100k' ? '1:100.000' : mode === '250k' ? '1:250.000' : null;
+
+  const matchingModeAndRegion = REGIONAL_INDEX_QUADRANGLES.filter((cell) => {
+    if (targetScale && cell.scale !== targetScale) return false;
+    if (!matchesRegionalRegion(cell.region, regionFilter)) return false;
+    return true;
+  });
+
+  const cells = viewportBounds
+    ? matchingModeAndRegion.filter((cell) => {
+      const [[s, w], [n, e]] = cell.bounds;
+      return (
+        n > viewportBounds.south &&
+        s < viewportBounds.north &&
+        e > viewportBounds.west &&
+        w < viewportBounds.east
+      );
+    })
+    : matchingModeAndRegion;
+
+  return {
+    mode,
+    regionFilter,
+    renderedScale: mode === '100k' ? '1:100.000' : '1:250.000',
+    cells,
+    totalCatalogCount: matchingModeAndRegion.length,
     totalCount: cells.length,
   };
 }
@@ -820,9 +1086,7 @@ export function computeCartographicScaleBar(
 }
 
 export const MAP_SCALE_ZOOM_ORDER: MapScaleValue[] = [
-  '1:5.000.000',
   '1:1.000.000',
-  '1:500.000',
   '1:250.000',
   '1:100.000',
   '1:50.000',
@@ -831,10 +1095,8 @@ export const MAP_SCALE_ZOOM_ORDER: MapScaleValue[] = [
 /** Peta 1-to-1 antara level zoom Leaflet dengan tingkatan skala indeks peta resmi */
 export function zoomToMapScaleValue(zoom: number): MapScaleValue {
   const z = Math.round(zoom);
-  if (z <= 4) return '1:5.000.000';
-  if (z === 5) return '1:1.000.000';
-  if (z === 6) return '1:500.000';
-  if (z === 7) return '1:250.000';
+  if (z <= 5) return '1:1.000.000';
+  if (z <= 7) return '1:250.000';
   if (z === 8) return '1:100.000';
   return '1:50.000';
 }
@@ -871,6 +1133,7 @@ export interface ProjectedPoint2D {
 
 export interface PopupAnchoredCenterParams {
   bounds: [[number, number], [number, number]];
+  anchorCenter?: [number, number];
   containerHeight: number;
   popupHeight: number;
   currentZoom: number;
@@ -892,11 +1155,21 @@ export function computePopupAnchoredMapCenter(
   params: PopupAnchoredCenterParams,
 ): { lat: number; lng: number; zoom: number } {
   const [[south, west], [north, east]] = params.bounds;
-  const centerLng = (west + east) / 2;
-  const centerLat = (south + north) / 2;
+  const centerLat = params.anchorCenter
+    ? params.anchorCenter[0]
+    : (south + north) / 2;
+  const centerLng = params.anchorCenter
+    ? params.anchorCenter[1]
+    : (west + east) / 2;
   const minCellPx = params.minPreserveCellPx ?? 40;
   const maxCellPx = params.maxPreserveCellPx ?? 420;
   const gapPx = params.gapPx ?? 20;
+
+  // Web/desktop (sm+): popup terpusat di containerHeight / 2; mobile (<640px): bottom-24
+  const popupTopScreenY = params.isMobileViewport
+    ? Math.max(120, params.containerHeight - 96 - params.popupHeight)
+    : params.containerHeight / 2 - params.popupHeight / 2;
+  const desiredCellBottomScreenY = popupTopScreenY - gapPx;
 
   let resolvedZoom = params.preferredZoom;
   if (params.preserveCurrentZoomIfVisible) {
@@ -906,17 +1179,21 @@ export function computePopupAnchoredMapCenter(
     if (curCellPxH >= minCellPx && curCellPxH <= maxCellPx) {
       resolvedZoom = params.currentZoom;
     }
+  } else {
+    const maxUnclampedCellH = Math.max(96, desiredCellBottomScreenY - 16);
+    while (resolvedZoom > 4) {
+      const pNorthTest = params.project(north, centerLng, resolvedZoom);
+      const pSouthTest = params.project(south, centerLng, resolvedZoom);
+      if (Math.abs(pSouthTest.y - pNorthTest.y) <= maxUnclampedCellH) {
+        break;
+      }
+      resolvedZoom -= 1;
+    }
   }
 
   const pSouth = params.project(south, centerLng, resolvedZoom);
   const pCellCenter = params.project(centerLat, centerLng, resolvedZoom);
 
-  // Web/desktop (sm+): popup terpusat di containerHeight / 2; mobile (<640px): bottom-24
-  const popupTopScreenY = params.isMobileViewport
-    ? Math.max(120, params.containerHeight - 96 - params.popupHeight)
-    : params.containerHeight / 2 - params.popupHeight / 2;
-
-  const desiredCellBottomScreenY = popupTopScreenY - gapPx;
   let desiredMapCenterY =
     pSouth.y + params.containerHeight / 2 - desiredCellBottomScreenY;
 

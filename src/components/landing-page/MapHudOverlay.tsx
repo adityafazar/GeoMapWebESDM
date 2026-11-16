@@ -6,11 +6,19 @@ import {
   HIGHLIGHT_MAP_SCALES,
   LANDING_MAP_TYPE_FILTERS,
   QUADRANGLE_GRIDS,
+  REGIONAL_INDEX_OPTIONS,
+  REGIONAL_REGION_OPTIONS,
   VOLCANOES,
   matchesLandingTypeFilter,
   normalizeGeoQuery,
+  type QuadrangleFeature,
 } from '../../data/geomapData';
+import {
+  REGIONAL_INDEX_QUADRANGLES,
+  generateRegionalIndexCells,
+} from '../../utils/indonesiaNlpGrid';
 import { useLeafletDomIsolation } from '../../hooks/useLeafletDomIsolation';
+import { MapDimensionPill } from './MapDimensionPill';
 import { MapFeatureInspector } from './MapFeatureInspector';
 
 const ACTIVE_GRID_PATH =
@@ -115,8 +123,12 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
     setMapPopup,
     mapPopupDocked,
     mapScaleFilter,
+    regionalIndexFilter,
+    regionalRegionFilter,
     nlpGridStats,
     selectMapScaleFilter,
+    selectRegionalIndexFilter,
+    selectRegionalRegionFilter,
     mapFormatFilter,
     setMapFormatFilter,
     mapTypeFilterIds,
@@ -135,39 +147,32 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
   const rawLower = mapSearchQuery.trim().toLowerCase();
   const normalized = normalizeGeoQuery(mapSearchQuery);
 
-  const activeScaleQuads = useMemo(() => {
-    if (!mapScaleFilter) return [];
-    const catalogMatches = QUADRANGLE_GRIDS.filter(
-      (q) => q.scale === mapScaleFilter,
-    );
-    const viewportCells = nlpGridStats?.visibleCells ?? [];
-    if (viewportCells.length === 0) {
-      return catalogMatches;
-    }
-
-    const seen = new Set<string>();
-    const combined: typeof QUADRANGLE_GRIDS = [];
-    for (const c of viewportCells) {
-      if (!seen.has(c.code)) {
-        seen.add(c.code);
-        combined.push(c);
-      }
-    }
-    for (const q of catalogMatches) {
-      if (!seen.has(q.code)) {
-        seen.add(q.code);
-        combined.push(q);
-      }
-    }
-    return combined.slice(0, 12);
-  }, [mapScaleFilter, nlpGridStats]);
-
   const effectiveActiveScale =
     mapScaleFilter && mapLayers.grid
-      ? (nlpGridStats?.renderedScale ?? mapScaleFilter)
+      ? nlpGridStats && !nlpGridStats.isRegional
+        ? nlpGridStats.renderedScale
+        : mapScaleFilter
       : mapScaleFilter;
-  const isGridIndexActive = Boolean(mapLayers.grid && effectiveActiveScale);
-  const activeScaleChipCount = activeScaleQuads.length;
+  const activeRegionalMeta =
+    regionalIndexFilter && mapLayers.grid
+      ? REGIONAL_INDEX_OPTIONS.find((o) => o.value === regionalIndexFilter) ?? null
+      : null;
+  const isGridIndexActive = Boolean(
+    mapLayers.grid && (effectiveActiveScale || activeRegionalMeta),
+  );
+  const headerIndexBadgeLabel = !isGridIndexActive
+    ? 'Nonaktif'
+    : activeRegionalMeta
+      ? activeRegionalMeta.badgeLabel
+      : effectiveActiveScale;
+
+  const visibleRegionalCount = useMemo(() => {
+    if (!regionalIndexFilter) return REGIONAL_INDEX_QUADRANGLES.length;
+    return generateRegionalIndexCells({
+      mode: regionalIndexFilter,
+      regionFilter: regionalRegionFilter,
+    }).totalCatalogCount;
+  }, [regionalIndexFilter, regionalRegionFilter]);
 
   const filteredTypeOptions = useMemo(
     () =>
@@ -179,12 +184,20 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
 
   const filteredCatalogDatasets = useMemo(
     () =>
-      DATASETS.filter(
-        (d) =>
-          (!mapScaleFilter || d.scale === mapScaleFilter) &&
-          matchesLandingTypeFilter(d, mapFormatFilter, mapTypeFilterIds),
-      ),
-    [mapScaleFilter, mapFormatFilter, mapTypeFilterIds],
+      DATASETS.filter((d) => {
+        const matchesScale = regionalIndexFilter
+          ? regionalIndexFilter === '100k'
+            ? d.scale === '1:100.000'
+            : regionalIndexFilter === '250k'
+              ? d.scale === '1:250.000'
+              : d.scale === '1:100.000' || d.scale === '1:250.000'
+          : !mapScaleFilter || d.scale === mapScaleFilter;
+        return (
+          matchesScale &&
+          matchesLandingTypeFilter(d, mapFormatFilter, mapTypeFilterIds)
+        );
+      }),
+    [mapScaleFilter, regionalIndexFilter, mapFormatFilter, mapTypeFilterIds],
   );
 
   const hasActiveDataFilter =
@@ -195,14 +208,50 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
       return { quadrangles: [], datasets: [], volcanoes: [] };
     }
 
-    const quads = QUADRANGLE_GRIDS.filter((q) => {
-      if (mapScaleFilter && q.scale !== mapScaleFilter) return false;
-      const hay = `${q.code} ${q.name} ${q.scale} ${q.region}`.toLowerCase();
+    const matchesQuadQuery = (q: QuadrangleFeature) => {
+      const hay = `${q.code} ${q.name} ${q.scale} ${q.region} ${q.themeCode ?? ''} ${q.locationLabel ?? ''} ${q.compilers ?? ''}`.toLowerCase();
       return hay.includes(normalized) || (rawLower ? hay.includes(rawLower) : false);
-    }).slice(0, 3);
+    };
+
+    const catalogQuads = QUADRANGLE_GRIDS.filter((q) => {
+      if (mapScaleFilter && q.scale !== mapScaleFilter) return false;
+      if (regionalIndexFilter === '100k' && q.scale !== '1:100.000') return false;
+      if (regionalIndexFilter === '250k' && q.scale !== '1:250.000') return false;
+      if (
+        regionalIndexFilter === 'all' &&
+        q.scale !== '1:100.000' &&
+        q.scale !== '1:250.000'
+      ) {
+        return false;
+      }
+      return matchesQuadQuery(q);
+    });
+
+    const regionalQuads = REGIONAL_INDEX_QUADRANGLES.filter((q) => {
+      if (mapScaleFilter && q.scale !== mapScaleFilter) return false;
+      if (regionalIndexFilter === '100k' && q.scale !== '1:100.000') return false;
+      if (regionalIndexFilter === '250k' && q.scale !== '1:250.000') return false;
+      return matchesQuadQuery(q);
+    });
+
+    const primaryPool = regionalIndexFilter
+      ? [...regionalQuads, ...catalogQuads]
+      : [...catalogQuads, ...regionalQuads];
+
+    const seenQuads = new Set<string>();
+    const quads: QuadrangleFeature[] = [];
+    for (const q of primaryPool) {
+      const dedupeKey = `${q.scale}::${q.code}`;
+      if (seenQuads.has(dedupeKey)) continue;
+      seenQuads.add(dedupeKey);
+      quads.push(q);
+      if (quads.length >= 3) break;
+    }
 
     const ds = DATASETS.filter((d) => {
       if (mapScaleFilter && d.scale !== mapScaleFilter) return false;
+      if (regionalIndexFilter === '100k' && d.scale !== '1:100.000') return false;
+      if (regionalIndexFilter === '250k' && d.scale !== '1:250.000') return false;
       if (!matchesLandingTypeFilter(d, mapFormatFilter, mapTypeFilterIds)) {
         return false;
       }
@@ -227,22 +276,23 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
           );
 
     return { quadrangles: quads, datasets: ds, volcanoes: broadVols.slice(0, 3) };
-  }, [mapFormatFilter, mapScaleFilter, mapTypeFilterIds, normalized, rawLower]);
+  }, [
+    mapFormatFilter,
+    mapScaleFilter,
+    regionalIndexFilter,
+    mapTypeFilterIds,
+    normalized,
+    rawLower,
+  ]);
 
-  const selectedQuadCode =
-    mapPopup?.kind === 'quadrangle' ? mapPopup.item.code : null;
-
-  const handleSelectQuad = (quad: (typeof QUADRANGLE_GRIDS)[number]) => {
+  const handleSelectQuad = (quad: QuadrangleFeature) => {
     focusQuadrangle(quad, {
       preserveCurrentZoomIfVisible: true,
       maxPreserveCellPx: 220,
     });
   };
 
-  const handlePickQuadrangle = (
-    quad: (typeof QUADRANGLE_GRIDS)[number],
-    query?: string,
-  ) => {
+  const handlePickQuadrangle = (quad: QuadrangleFeature, query?: string) => {
     handleSelectQuad(quad);
     recordSearchHistory({ kind: 'quadrangle', quad, query });
     setSearchFocused(false);
@@ -503,7 +553,11 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                 <div className="space-y-1.5 px-2.5 py-2 text-xs">
                   <p className="font-semibold">
                     Tidak ada lembar cocok untuk &ldquo;{mapSearchQuery}&rdquo;
-                    {mapScaleFilter ? ` pada skala ${mapScaleFilter}` : ''}
+                    {mapScaleFilter
+                      ? ` pada skala ${mapScaleFilter}`
+                      : activeRegionalMeta
+                        ? ` pada ${activeRegionalMeta.badgeLabel}`
+                        : ''}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {mapScaleFilter && (
@@ -515,10 +569,25 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                         Reset filter skala
                       </button>
                     )}
+                    {regionalIndexFilter && (
+                      <button
+                        type="button"
+                        onClick={() => selectRegionalIndexFilter(null)}
+                        className="gm-focus gm-press text-[11px] font-semibold underline cursor-pointer"
+                      >
+                        Reset filter regional
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
-                        if (mapScaleFilter) setCatScale(mapScaleFilter);
+                        if (mapScaleFilter) {
+                          setCatScale(mapScaleFilter);
+                        } else if (regionalIndexFilter === '100k') {
+                          setCatScale('1:100.000');
+                        } else if (regionalIndexFilter === '250k') {
+                          setCatScale('1:250.000');
+                        }
                         navigate('catalog');
                       }}
                       className="gm-focus gm-press text-[11px] font-semibold underline cursor-pointer"
@@ -534,7 +603,7 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                 <>
                   {searchMatches.quadrangles.map((q) => (
                     <button
-                      key={`q-${q.code}`}
+                      key={`q-${q.isRegionalIndex ? 'reg-' : ''}${q.code}`}
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handlePickQuadrangle(q, mapSearchQuery)}
@@ -545,7 +614,12 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                           {q.code} · {q.name}
                         </div>
                         <div className="tabular-nums text-[10px] opacity-75">
-                          Indeks Lembar • {q.scale} • {q.region}
+                          {q.isRegionalIndex
+                            ? q.themeCode
+                              ? `Indeks Regional (${q.themeCode})`
+                              : 'Indeks Regional'
+                            : 'Indeks Lembar'}{' '}
+                          • {q.scale} • {q.region}
                         </div>
                       </div>
                     </button>
@@ -592,7 +666,10 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
           </div>
         </div>
 
-        {/* 2) KARTU INDEKS SKALA PETA AKORDION (Terpisah, Buka–Tutup + Ikon Grid Hide/Aktif) */}
+        {/* 2) KAPSUL 2D / 3D TERRAIN + SLIDER PITCH (Di bawah Search Bar, lebar & tinggi sejajar) */}
+        <MapDimensionPill />
+
+        {/* 3) KARTU INDEKS SKALA PETA AKORDION (Terpisah, Buka–Tutup + Ikon Grid Hide/Aktif) */}
         <div
           id="map-scale-index-card"
           className="gm-hud pointer-events-auto flex min-h-0 w-full shrink-0 flex-col overflow-hidden transition-[width] duration-200"
@@ -650,7 +727,7 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                         }
                   }
                 >
-                  {isGridIndexActive ? effectiveActiveScale : 'Nonaktif'}
+                  {headerIndexBadgeLabel}
                 </span>
               </span>
               <ChevronDown
@@ -671,7 +748,7 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
           >
             <div className="gm-accordion-inner">
               <div
-                className="gm-scroll max-h-[32vh] overflow-y-auto border-t px-2.5 pt-2 pb-2.5"
+                className="gm-scroll max-h-[38vh] overflow-y-auto border-t px-2.5 pt-2 pb-2.5"
                 style={{ borderColor: 'var(--s-hud-border)' }}
               >
                 <div className="mb-1 flex items-baseline justify-between gap-2 px-0.5">
@@ -683,7 +760,7 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                       className="gm-micro tabular-nums text-[10px] font-medium truncate"
                       style={{ color: 'var(--s-hud-muted)' }}
                     >
-                      1:5.000.000 – 1:50.000
+                      1:1.000.000 – 1:50.000
                     </span>
                   </div>
                   {mapScaleFilter && (
@@ -701,7 +778,7 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                 <div
                   role="group"
                   aria-label="Filter Skala Peta 1:5.000.000 sampai 1:50.000"
-                  className="grid grid-cols-3 gap-0.5 rounded-[10px] p-1"
+                  className="grid grid-cols-2 gap-0.5 rounded-[10px] p-1"
                   style={{
                     backgroundColor: 'var(--s-hud-chip-bg)',
                     boxShadow: 'inset 0 0 0 1px var(--s-hud-border)',
@@ -736,65 +813,134 @@ export const MapHudOverlay: React.FC<MapHudOverlayProps> = ({
                   })}
                 </div>
 
-                {/* Connected Basemap Quadrangle Indices (Clean Typographic Rows) */}
-                {mapScaleFilter && activeScaleChipCount > 0 && (
+                {/* Filter Indeks Regional (Ndx GL-ID 100-250: 1:100.000 Jawa & 1:250.000 Luar Jawa) */}
+                <div
+                  className="mt-2 border-t pt-2"
+                  style={{ borderColor: 'var(--s-hud-border)' }}
+                >
+                  <div className="mb-1 flex items-baseline justify-between gap-2 px-0.5">
+                    <div className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
+                        Indeks Regional
+                      </span>
+                      <span
+                        className="gm-micro tabular-nums text-[10px] font-medium truncate"
+                        style={{ color: 'var(--s-hud-muted)' }}
+                      >
+                        1:100.000 &amp; 1:250.000
+                      </span>
+                    </div>
+                    {regionalIndexFilter && (
+                      <button
+                        type="button"
+                        onClick={() => selectRegionalIndexFilter(null)}
+                        className="gm-press gm-focus gm-micro text-[10px] font-semibold cursor-pointer opacity-80 hover:opacity-100 shrink-0"
+                        style={{ color: 'var(--s-hud-fg)' }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+
                   <div
-                    className="mt-1.5 rounded-[10px] p-2"
+                    role="group"
+                    aria-label="Filter Indeks Regional 1:100.000 dan 1:250.000"
+                    className="grid grid-cols-3 gap-0.5 rounded-[10px] p-1"
                     style={{
                       backgroundColor: 'var(--s-hud-chip-bg)',
                       boxShadow: 'inset 0 0 0 1px var(--s-hud-border)',
                     }}
                   >
-                    <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
-                      <span
-                        className="gm-micro text-[10px] font-semibold uppercase tracking-wider"
-                        style={{ color: 'var(--s-hud-muted)' }}
-                      >
-                        {nlpGridStats && nlpGridStats.visibleCount > 0
-                          ? `Indeks NLP (${nlpGridStats.visibleCount} sel)`
-                          : `Indeks Basemap (${activeScaleChipCount})`}
-                      </span>
-                      <span
-                        className="gm-micro text-[10px]"
-                        style={{ color: 'var(--s-hud-muted)' }}
-                      >
-                        {nlpGridStats?.isParentFallback
-                          ? 'Zoom masuk utk detail'
-                          : 'Klik lembar'}
-                      </span>
-                    </div>
-                    <div className="gm-scroll grid max-h-24 grid-cols-2 gap-1 overflow-y-auto pr-0.5">
-                      {activeScaleQuads.map((q) => {
-                        const isQuadSelected = selectedQuadCode === q.code;
-                        const chipText = q.isComputedGrid
-                          ? `${q.code} · ${q.locationLabel ?? q.region}`
-                          : `${q.code} · ${q.name.replace(/^Lembar\s+/i, '')}`;
-                        return (
-                          <button
-                            key={q.code}
-                            type="button"
-                            onClick={() => handleSelectQuad(q)}
-                            title={chipText}
-                            className="gm-press gm-focus flex items-center justify-between gap-1.5 rounded-[7px] px-2 py-1 text-left text-[11px] font-medium cursor-pointer"
-                            style={
-                              isQuadSelected
-                                ? {
-                                    backgroundColor: 'var(--p-esdm-yellow)',
-                                    color: '#000000',
-                                  }
-                                : {
-                                    backgroundColor: 'var(--s-hud-bg-solid)',
-                                    color: 'var(--s-hud-fg)',
-                                  }
-                            }
-                          >
-                            <span className="truncate">{chipText}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {REGIONAL_INDEX_OPTIONS.map((opt) => {
+                      const active =
+                        mapLayers.grid && regionalIndexFilter === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => selectRegionalIndexFilter(opt.value)}
+                          title={opt.desc}
+                          className="gm-press gm-focus gm-touch-target tabular-nums rounded-[7px] px-1 py-1 text-center text-[10.5px] font-semibold whitespace-nowrap cursor-pointer"
+                          style={
+                            active
+                              ? {
+                                  backgroundColor: 'var(--p-esdm-yellow)',
+                                  color: '#000000',
+                                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.16)',
+                                }
+                              : {
+                                  backgroundColor: 'transparent',
+                                  color: 'var(--s-hud-muted)',
+                                }
+                          }
+                        >
+                          {opt.shortLabel}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+
+                  {mapLayers.grid &&
+                    regionalIndexFilter &&
+                    regionalIndexFilter !== '100k' && (
+                      <div className="mt-1.5 space-y-1 px-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className="gm-micro text-[9.5px] font-semibold uppercase tracking-wider"
+                            style={{ color: 'var(--s-hud-muted)' }}
+                          >
+                            Wilayah Regional
+                          </span>
+                          <span
+                            className="gm-micro tabular-nums text-[9.5px] font-semibold"
+                            style={{ color: 'var(--s-hud-muted)' }}
+                          >
+                            {visibleRegionalCount} lembar
+                          </span>
+                        </div>
+                        <div
+                          role="group"
+                          aria-label="Filter wilayah Indeks Regional"
+                          className="flex flex-wrap gap-1"
+                        >
+                          {REGIONAL_REGION_OPTIONS.filter(
+                            (r) =>
+                              regionalIndexFilter === 'all' ||
+                              r.value !== 'Jawa',
+                          ).map((reg) => {
+                            const active = regionalRegionFilter === reg.value;
+                            return (
+                              <button
+                                key={reg.value}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() =>
+                                  selectRegionalRegionFilter(reg.value)
+                                }
+                                className="gm-press gm-focus rounded-md px-1.5 py-0.5 text-[10px] font-semibold cursor-pointer transition-colors"
+                                style={
+                                  active
+                                    ? {
+                                        backgroundColor: '#233C5A',
+                                        color: '#FFFFFF',
+                                      }
+                                    : {
+                                        backgroundColor: 'var(--s-hud-chip-bg)',
+                                        color: 'var(--s-hud-muted)',
+                                        boxShadow:
+                                          'inset 0 0 0 1px var(--s-hud-border)',
+                                      }
+                                }
+                              >
+                                {reg.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                </div>
               </div>
             </div>
           </div>

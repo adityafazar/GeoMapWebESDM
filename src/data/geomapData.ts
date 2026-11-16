@@ -1,3 +1,5 @@
+import { INDEX_1M_QUADRANGLES } from './index1mData';
+
 export type LayerKey =
   | 'province'
   | 'geology'
@@ -194,7 +196,9 @@ export function buildDummySheetFiles(
   formatFilter: LandingMapDataFormat,
   selectedTypeIds: string[],
 ): DummySheetFile[] {
-  const cleanCode = sheetCode.replace(/[^a-zA-Z0-9-]/g, '_');
+  const cleanCode =
+    sheetCode.replace(/[^a-zA-Z0-9-]+/g, '_').replace(/^_+|_+$/g, '') ||
+    'sheet';
   const cleanArea = areaLabel.trim() || 'Indonesia';
 
   return LANDING_MAP_TYPE_FILTERS.filter((spec) => {
@@ -300,6 +304,14 @@ export interface QuadrangleFeature {
   center: [number, number];
   /** True ketika dihasilkan otomatis dari grid matematis SNI 6502 / IMW */
   isComputedGrid?: boolean;
+  /** True ketika berasal dari berkas Indeks Geologi Regional PSG (Ndx GL-ID 100-250) */
+  isRegionalIndex?: boolean;
+  /** Kode tema geologi regional (mis. GL-JW 100, GL-SM 250) */
+  themeCode?: string;
+  /** Nama penyusun lembar peta geologi regional */
+  compilers?: string;
+  /** Instansi penerbit lembar peta */
+  publisher?: string;
   /** Nama kota/lokasi perwakilan di dalam sel indeks */
   locationLabel?: string;
   /** Kode lembar induk (mis. 1209 untuk 1209-3) */
@@ -320,6 +332,70 @@ export type MapScaleValue =
 
 export type MapScaleFilter = MapScaleValue | null;
 
+export type RegionalIndexMode = 'all' | '100k' | '250k';
+export type RegionalIndexFilter = RegionalIndexMode | null;
+export type RegionalIndexRegion =
+  | 'Semua'
+  | 'Sumatera'
+  | 'Jawa'
+  | 'Kalimantan'
+  | 'Sulawesi'
+  | 'Bali & Nusa Tenggara'
+  | 'Maluku'
+  | 'Papua';
+
+export interface RegionalIndexOptionMeta {
+  value: RegionalIndexMode;
+  shortLabel: string;
+  badgeLabel: string;
+  desc: string;
+  targetCenter: [number, number];
+  targetZoom: number;
+}
+
+export const REGIONAL_INDEX_OPTIONS: RegionalIndexOptionMeta[] = [
+  {
+    value: 'all',
+    shortLabel: 'Semua (234)',
+    badgeLabel: 'Regional 100–250K',
+    desc: 'Seluruh 234 lembar Indeks Geologi Regional 1:100.000 (Jawa) & 1:250.000 (Luar Jawa)',
+    targetCenter: [-2.4, 117.5],
+    targetZoom: 5,
+  },
+  {
+    value: '100k',
+    shortLabel: 'Jawa 1:100K',
+    badgeLabel: 'Regional 1:100K',
+    desc: '57 lembar geologi bersistem Jawa & Madura skala 1:100.000 (GL-JW 100)',
+    targetCenter: [-7.25, 109.8],
+    targetZoom: 7,
+  },
+  {
+    value: '250k',
+    shortLabel: 'Luar Jawa 250K',
+    badgeLabel: 'Regional 1:250K',
+    desc: '177 lembar geologi bersistem Luar Jawa skala 1:250.000 (GL-ID 250)',
+    targetCenter: [-2.0, 117.5],
+    targetZoom: 5,
+  },
+];
+
+export const REGIONAL_REGION_OPTIONS: {
+  value: RegionalIndexRegion;
+  label: string;
+  targetCenter: [number, number];
+  targetZoom: number;
+}[] = [
+  { value: 'Semua', label: 'Semua', targetCenter: [-2.4, 117.5], targetZoom: 5 },
+  { value: 'Sumatera', label: 'Sumatera', targetCenter: [-0.4, 101.2], targetZoom: 6 },
+  { value: 'Jawa', label: 'Jawa', targetCenter: [-7.25, 109.8], targetZoom: 7 },
+  { value: 'Kalimantan', label: 'Kalimantan', targetCenter: [-0.2, 114.2], targetZoom: 6 },
+  { value: 'Sulawesi', label: 'Sulawesi', targetCenter: [-1.4, 121.6], targetZoom: 6 },
+  { value: 'Bali & Nusa Tenggara', label: 'Bali & Nusra', targetCenter: [-8.9, 120.5], targetZoom: 7 },
+  { value: 'Maluku', label: 'Maluku', targetCenter: [-3.2, 129.0], targetZoom: 6 },
+  { value: 'Papua', label: 'Papua', targetCenter: [-4.2, 136.5], targetZoom: 6 },
+];
+
 export interface MapScaleMeta {
   value: MapScaleValue;
   shortLabel: string;
@@ -332,15 +408,6 @@ export interface MapScaleMeta {
 
 export const HIGHLIGHT_MAP_SCALES: MapScaleMeta[] = [
   {
-    value: '1:5.000.000',
-    shortLabel: '1:5.000.000',
-    desc: 'Sintesis Nasional Nusantara',
-    targetCenter: [-2.4, 117.5],
-    targetZoom: 4,
-    strokeColor: '#233C5A',
-    fillColor: '#64748B',
-  },
-  {
     value: '1:1.000.000',
     shortLabel: '1:1.000.000',
     desc: 'Kompilasi Regional IMW 4° × 6°',
@@ -348,15 +415,6 @@ export const HIGHLIGHT_MAP_SCALES: MapScaleMeta[] = [
     targetZoom: 5,
     strokeColor: '#0284C7',
     fillColor: '#38BDF8',
-  },
-  {
-    value: '1:500.000',
-    shortLabel: '1:500.000',
-    desc: 'Kuadran Regional 2° × 3°',
-    targetCenter: [-6.6, 109.5],
-    targetZoom: 6,
-    strokeColor: '#00B473',
-    fillColor: '#34D399',
   },
   {
     value: '1:250.000',
@@ -1165,56 +1223,8 @@ export const ACTIVE_FAULTS: ActiveFaultFeature[] = [
 ];
 
 export const QUADRANGLE_GRIDS: QuadrangleFeature[] = [
-  // --- SKALA 1:5.000.000 (Sintesis Nasional Nusantara — mencakup Bandung) ---
-  {
-    code: 'NAS-BARAT',
-    name: 'Lembar Nasional Nusantara Barat (Bandung)',
-    scale: '1:5.000.000',
-    region: 'Nasional',
-    year: 2024,
-    hasShp: true,
-    summary: 'Kompilasi nasional geologi, struktur tektonik, dan cekungan Sumatera, Jawa–Bali (termasuk Bandung), serta Kalimantan dalam cakupan 1:5.000.000.',
-    slug: 'peta-geologi-indonesia',
-    bounds: [
-      [-11.0, 94.5],
-      [6.5, 119.5],
-    ],
-    center: [-2.25, 107.0],
-  },
-
-  // --- SKALA 1:1.000.000 (Standar IMW 4° × 6° — mencakup Bandung) ---
-  {
-    code: 'SB-48',
-    name: 'Lembar Priangan & Bandung Regional',
-    scale: '1:1.000.000',
-    region: 'Jawa & Bali',
-    year: 2023,
-    hasShp: true,
-    summary: 'Kompilasi regional wilayah Cekungan Bandung, Priangan, Jabodetabek, hingga Selat Sunda dalam lembar IMW SB-48.',
-    slug: 'peta-geologi-lembar-bandung-jawa',
-    bounds: [
-      [-8.0, 102.0],
-      [-4.0, 108.0],
-    ],
-    center: [-6.0, 105.0],
-  },
-
-  // --- SKALA 1:500.000 (Kuadran Regional 2° × 3° — mencakup Bandung) ---
-  {
-    code: 'SB-48-SE',
-    name: 'Lembar Jawa Bagian Barat (Bandung)',
-    scale: '1:500.000',
-    region: 'Jawa & Bali',
-    year: 2022,
-    hasShp: true,
-    summary: 'Sebaran batuan sedimen Bogor Trough, Zona Bandung vulkanik Kuarter, hingga Pegunungan Selatan Jawa Barat.',
-    slug: 'peta-geologi-lembar-bandung-jawa',
-    bounds: [
-      [-8.0, 105.0],
-      [-6.0, 108.0],
-    ],
-    center: [-7.0, 106.5],
-  },
+  // --- SKALA 1:1.000.000 (16 Lembar Resmi PSG Ndx GL-ID 1M: I–XVI) ---
+  ...INDEX_1M_QUADRANGLES,
 
   // --- SKALA 1:250.000 (Sistematik Induk SNI NLP — Bandung) ---
   {

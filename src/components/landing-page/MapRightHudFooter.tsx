@@ -1,4 +1,5 @@
 import React from 'react';
+import type { MapDimensionMode } from '../../context/GeoMapContext';
 import { OFFICIAL_ATTRIBUTION, type MapLayerMeta } from '../../data/geomapData';
 
 interface MapRightHudFooterProps {
@@ -10,6 +11,8 @@ interface MapRightHudFooterProps {
     label: string;
   };
   activeLayerObjs: MapLayerMeta[];
+  mapDimension: MapDimensionMode;
+  mapPitchDeg: number;
 }
 
 export const MapRightHudFooter: React.FC<MapRightHudFooterProps> = ({
@@ -18,6 +21,8 @@ export const MapRightHudFooter: React.FC<MapRightHudFooterProps> = ({
   scaleLabel,
   scaleBar,
   activeLayerObjs,
+  mapDimension,
+  mapPitchDeg,
 }) => {
   return (
     <div className="flex shrink-0 flex-col items-end gap-2">
@@ -31,6 +36,14 @@ export const MapRightHudFooter: React.FC<MapRightHudFooterProps> = ({
           </div>
           <span className="opacity-35">|</span>
           <div className="tabular-nums font-medium">Skala {scaleLabel}</div>
+          {mapDimension === '3d' && (
+            <>
+              <span className="opacity-35">|</span>
+              <div className="tabular-nums font-bold">
+                3D · {mapPitchDeg}°
+              </div>
+            </>
+          )}
           <span className="opacity-35">|</span>
           <div className="flex items-center gap-1.5">
             <span

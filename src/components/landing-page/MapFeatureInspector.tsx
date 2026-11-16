@@ -188,7 +188,7 @@ export const MapFeatureInspector: React.FC<MapFeatureInspectorProps> = ({
           <div className={isDocked ? 'flex min-h-0 flex-1 flex-col' : ''}>
             <div className="flex shrink-0 items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span
                     className="gm-micro text-[10px] font-bold uppercase tracking-wider"
                     style={{ color: 'var(--s-hud-muted)' }}
@@ -201,6 +201,17 @@ export const MapFeatureInspector: React.FC<MapFeatureInspectorProps> = ({
                   >
                     Skala {mapPopup.item.scale}
                   </span>
+                  {mapPopup.item.isRegionalIndex && mapPopup.item.themeCode && (
+                    <span
+                      className="gm-micro tabular-nums rounded px-1.5 py-0.5 text-[10px] font-bold"
+                      style={{
+                        backgroundColor: '#233C5A',
+                        color: '#FFF500',
+                      }}
+                    >
+                      {mapPopup.item.themeCode}
+                    </span>
+                  )}
                 </div>
                 <h3 className={headingCls}>
                   {mapPopup.item.name}
@@ -210,6 +221,7 @@ export const MapFeatureInspector: React.FC<MapFeatureInspectorProps> = ({
                     ? `${mapPopup.item.locationLabel} · ${mapPopup.item.region}`
                     : mapPopup.item.region}{' '}
                   · {mapPopup.item.hasShp ? 'GeoTIFF & .SHP' : 'GeoTIFF'}
+                  {mapPopup.item.year > 0 ? ` · ${mapPopup.item.year}` : ''}
                 </p>
               </div>
               <button
@@ -225,6 +237,23 @@ export const MapFeatureInspector: React.FC<MapFeatureInspectorProps> = ({
             <p className={`${bodyCls} shrink-0`}>
               {mapPopup.item.summary}
             </p>
+
+            {mapPopup.item.isRegionalIndex && (
+              <div
+                className="mt-2 shrink-0 rounded-lg px-2.5 py-1.5 text-[10.5px] leading-snug"
+                style={{
+                  backgroundColor: 'var(--s-hud-chip-bg)',
+                  color: 'var(--s-hud-muted)',
+                }}
+              >
+                <span className="font-semibold" style={{ color: 'var(--s-hud-fg)' }}>
+                  {mapPopup.item.publisher ?? 'Pusat Survei Geologi'}
+                </span>
+                {mapPopup.item.compilers ? (
+                  <span> · Penyusun: {mapPopup.item.compilers}</span>
+                ) : null}
+              </div>
+            )}
 
             {/* Simulasi Data Dummy 9 Jenis File (SHP & Raster) Tersinkron Filter */}
             <div
