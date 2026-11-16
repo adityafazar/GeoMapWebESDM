@@ -1,0 +1,170 @@
+/* ==========================================================================
+   3-LAYER DESIGN TOKENS + EMIL KOWALSKI MOTION ARCHITECTURE
+   Acuan Resmi: Pedoman Identitas Visual Kementerian ESDM (Bab 3 & 4)
+   ========================================================================== */
+
+:root,
+.geomap-stage {
+  /* LAYER 1: PRIMITIVES — PALET RESMI KESDM */
+  --p-esdm-yellow: #FFF500;
+  --p-esdm-black: #000000;
+  --p-esdm-gold: #D5B600;
+  --p-esdm-green: #00B473;
+  --p-esdm-green-700: #047857;
+  --p-esdm-green-900: #064E3B;
+  --p-esdm-green-50: #E6F8F1;
+  --p-esdm-navy: #233C5A;
+  --p-esdm-navy-deep: #15253B;
+  --p-esdm-mist: #E1E6EB;
+
+  --p-slate-950: #0B1120;
+  --p-slate-900: #0F172A;
+  --p-slate-800: #1E293B;
+  --p-slate-700: #334155;
+  --p-slate-600: #475569;
+  --p-slate-400: #94A3B8;
+  --p-slate-300: #CBD5E1;
+  --p-slate-200: #E2E8F0;
+  --p-slate-100: #F1F5F9;
+  --p-slate-50: #F8FAFC;
+  --p-white: #FFFFFF;
+
+  /* LAYER 1B: EMIL KOWALSKI & APPLE SPRING MOTION CURVES */
+  --ease-spring: cubic-bezier(0.22, 1.15, 0.36, 1);
+  --ease-apple: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* LAYER 2: SEMANTIC TOKENS (Light Mode Default / Topografi) */
+  --s-bg-canvas: #F4F7FA;
+  --s-bg-surface: var(--p-white);
+  --s-bg-surface-muted: var(--p-slate-50);
+  --s-bg-surface-elevated: var(--p-white);
+  --s-bg-header: rgba(255, 255, 255, 0.82);
+  --s-bg-header-solid: rgba(255, 255, 255, 0.98);
+  --s-header-shadow: var(--s-hud-specular), 0 1px 14px rgba(15, 23, 42, 0.06);
+
+  --s-text-primary: var(--p-slate-900);
+  --s-text-secondary: #334155;
+  --s-text-muted: #475569;
+  --s-text-nav: #334155;
+  --s-text-brand: var(--p-esdm-navy);
+
+  --s-border-subtle: rgba(15, 23, 42, 0.08);
+  --s-border-strong: rgba(15, 23, 42, 0.16);
+  --s-track-bg: rgba(35, 60, 90, 0.06);
+  --s-track-ring: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --s-nav-pill-shadow: 0 2px 8px rgba(213, 182, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --s-nav-badge-bg: rgba(6, 78, 59, 0.08);
+  --s-nav-badge-fg: #064E3B;
+
+  --s-accent-cta-bg: var(--p-esdm-yellow);
+  --s-accent-cta-hover: #F2E800;
+  --s-accent-cta-fg: var(--p-esdm-black);
+
+  --s-status-public-bg: var(--p-esdm-green-50);
+  --s-status-public-fg: var(--p-esdm-green-900);
+  --s-status-public-dot: var(--p-esdm-green);
+
+  --s-status-lock-bg: var(--p-slate-100);
+  --s-status-lock-fg: var(--p-slate-700);
+
+  --s-focus-ring: var(--p-esdm-navy);
+
+  /* Adaptive HUD Defaults (Topo Light Glass) */
+  --s-hud-bg: rgba(255, 255, 255, 0.84);
+  --s-hud-bg-solid: rgba(255, 255, 255, 0.96);
+  --s-hud-fg: var(--p-slate-900);
+  --s-hud-muted: var(--p-slate-600);
+  --s-hud-border: rgba(35, 60, 90, 0.14);
+  --s-hud-chip-bg: rgba(241, 245, 249, 0.92);
+  --s-hud-scale-badge-bg: var(--p-esdm-navy);
+  --s-hud-scale-badge-fg: #FFFFFF;
+  --s-hud-scale-badge-border: transparent;
+  --s-hud-specular: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --s-hud-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.16), 0 2px 8px -2px rgba(15, 23, 42, 0.08);
+
+  /* LAYER 3: COMPONENT & CARTOGRAPHIC LAYER TOKENS */
+  --c-header-h: 58px;
+  --c-hud-radius: 16px;
+  --c-card-radius: 14px;
+  --c-btn-radius: 10px;
+  --c-sheet-radius: 20px;
+  --c-hud-blur: blur(12px) saturate(160%);
+  --c-header-blur: blur(12px) saturate(160%);
+
+  --layer-province: #233C5A;
+  --layer-geology: #D5B600;
+  --layer-fault: #DC2626;
+  --layer-volcano: #EA580C;
+  --layer-water: #0284C7;
+  --layer-basin: #00B473;
+  --layer-grid: #233C5A;
+
+  /* Unified Single-Font Typography Token: Poppins across UI & technical tables */
+  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: var(--font-sans);
+
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  letter-spacing: 0em;
+  color: var(--s-text-primary);
+  background-color: var(--s-bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark Mode Semantic Overrides */
+.geomap-stage.is-dark {
+  --s-bg-canvas: var(--p-slate-950);
+  --s-bg-surface: #111C2E;
+  --s-bg-surface-muted: #162338;
+  --s-bg-surface-elevated: #1B2A44;
+  --s-bg-header: rgba(10, 15, 28, 0.90);
+  --s-bg-header-solid: rgba(10, 15, 28, 0.98);
+  --s-header-shadow: var(--s-hud-specular), 0 4px 18px rgba(0, 0, 0, 0.35);
+  --s-hud-specular: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+
+  --s-text-primary: #FFFFFF;
+  --s-text-secondary: #E2E8F0;
+  --s-text-muted: #CBD5E1;
+  --s-text-nav: #F1F5F9;
+  --s-text-brand: #F8FAFC;
+
+  --s-border-subtle: rgba(255, 255, 255, 0.12);
+  --s-border-strong: rgba(255, 255, 255, 0.24);
+  --s-track-bg: rgba(255, 255, 255, 0.09);
+  --s-track-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+  --s-nav-pill-shadow: 0 1px 3px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --s-nav-badge-bg: rgba(255, 255, 255, 0.16);
+  --s-nav-badge-fg: #FFFFFF;
+
+  --s-status-public-bg: rgba(0, 180, 115, 0.16);
+  --s-status-public-fg: #6EE7B7;
+
+  --s-status-lock-bg: rgba(148, 163, 184, 0.14);
+  --s-status-lock-fg: #CBD5E1;
+
+  --s-focus-ring: var(--p-esdm-yellow);
+
+  --s-hud-bg: rgba(15, 23, 42, 0.90);
+  --s-hud-bg-solid: rgba(15, 23, 42, 0.98);
+  --s-hud-fg: #F8FAFC;
+  --s-hud-muted: #CBD5E1;
+  --s-hud-border: rgba(255, 255, 255, 0.18);
+  --s-hud-chip-bg: rgba(30, 41, 59, 0.92);
+  --s-hud-scale-badge-bg: rgba(35, 60, 90, 0.96);
+  --s-hud-scale-badge-fg: #FFFFFF;
+  --s-hud-scale-badge-border: rgba(255, 255, 255, 0.20);
+  --s-hud-shadow: 0 20px 44px -12px rgba(0, 0, 0, 0.56), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Satellite Base Map Adaptive HUD: Tetap menggunakan tema aktif (Light Frosted Glass saat Terang, jangan paksa Dark Mode) */
+.geomap-stage.is-sat:not(.is-dark) .map-hud-zone,
+.geomap-stage.is-sat:not(.is-dark).map-hud-zone {
+  --s-hud-bg: rgba(255, 255, 255, 0.90);
+  --s-hud-bg-solid: rgba(255, 255, 255, 0.98);
+  --s-hud-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.36), 0 0 0 1px rgba(255, 255, 255, 0.36);
+}
+

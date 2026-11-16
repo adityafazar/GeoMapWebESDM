@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 135" width="240" height="135">
+  <!-- Pale ocean canvas -->
+  <rect width="240" height="135" fill="#f8fafc"/>
+  <!-- Clean archipelago landmasses -->
+  <path d="M-10,58 C24,52 54,66 88,60 C124,54 154,68 188,62 C214,58 232,64 250,60 L250,145 L-10,145 Z" fill="#e5e9ef" stroke="#cbd5e1" stroke-width="1"/>
+  <path d="M112,8 C132,12 148,26 142,38 C134,48 112,44 102,32 C94,22 98,6 112,8 Z" fill="#e5e9ef" stroke="#cbd5e1" stroke-width="1"/>
+  <path d="M174,18 C194,14 214,24 208,36 C200,44 176,42 168,32 C164,26 168,20 174,18 Z" fill="#e5e9ef" stroke="#cbd5e1" stroke-width="1"/>
+  <!-- Subtle administrative boundaries & faint roads -->
+  <path d="M48,60 L54,135 M128,58 L122,135 M186,62 L196,135" fill="none" stroke="#cbd5e1" stroke-width="0.9" stroke-dasharray="3 2"/>
+  <path d="M0,92 Q78,80 144,96 T240,86" fill="none" stroke="#ffffff" stroke-width="1.6" opacity="0.85"/>
+</svg>
+

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 135" width="240" height="135">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dfe6e9"/>
+      <stop offset="55%" stop-color="#c3cfd6"/>
+      <stop offset="100%" stop-color="#9aa9b5"/>
+    </linearGradient>
+    <linearGradient id="ridgeLight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f4f7f8" stop-opacity="0.92"/>
+      <stop offset="100%" stop-color="#b8c6d1" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="ridgeShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#64748b" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#475569" stop-opacity="0.72"/>
+    </linearGradient>
+    <radialGradient id="valley" cx="52%" cy="55%" r="48%">
+      <stop offset="0%" stop-color="#cfd8c8" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#94a3b8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="240" height="135" fill="url(#bg)"/>
+  <rect width="240" height="135" fill="url(#valley)"/>
+  <!-- Sunlit NW mountain flanks -->
+  <path d="M-10,95 L42,46 L86,62 L134,26 L186,52 L250,18 L250,0 L-10,0 Z" fill="url(#ridgeLight)"/>
+  <path d="M18,135 L68,78 L112,92 L168,54 L214,80 L250,64 L250,135 Z" fill="#cbd5e1" opacity="0.5"/>
+  <!-- Shaded SE mountain slopes -->
+  <path d="M42,46 L70,84 L86,62 Z" fill="url(#ridgeShade)"/>
+  <path d="M134,26 L160,72 L186,52 L176,84 L118,62 Z" fill="url(#ridgeShade)"/>
+  <path d="M186,52 L222,94 L250,58 L250,18 Z" fill="url(#ridgeShade)" opacity="0.8"/>
+  <path d="M68,78 L98,118 L112,92 Z" fill="url(#ridgeShade)" opacity="0.7"/>
+  <path d="M168,54 L196,104 L214,80 Z" fill="url(#ridgeShade)" opacity="0.75"/>
+  <!-- Secondary ridge spurs -->
+  <path d="M0,42 Q32,34 52,58 T104,76 T162,48 T232,68" fill="none" stroke="#f8fafc" stroke-width="1.6" opacity="0.55"/>
+  <path d="M8,112 Q46,90 88,104 T158,88 T236,108" fill="none" stroke="#475569" stroke-width="1.4" opacity="0.32"/>
+  <!-- Subtle river channel -->
+  <path d="M-6,120 C44,104 72,118 118,96 C158,78 194,104 246,88" fill="none" stroke="#93c5fd" stroke-width="1.6" opacity="0.65"/>
+</svg>
+
